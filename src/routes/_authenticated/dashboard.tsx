@@ -204,12 +204,14 @@ function DashboardPage() {
       });
 
       const topMap = new Map<string, { qty: number; total: number }>();
-      (saleItems.data ?? []).forEach((it) => {
-        const name = (it.product as { name: string } | null)?.name ?? "—";
-        const c = topMap.get(name) ?? { qty: 0, total: 0 };
-        c.qty += it.quantity;
-        c.total += Number(it.unit_price) * it.quantity;
-        topMap.set(name, c);
+      sales.forEach((s) => {
+        (s.sale_items ?? []).forEach((it) => {
+          const name = (it.product as { name: string } | null)?.name ?? "—";
+          const c = topMap.get(name) ?? { qty: 0, total: 0 };
+          c.qty += it.quantity;
+          c.total += Number(it.unit_price) * it.quantity;
+          topMap.set(name, c);
+        });
       });
       const top5 = Array.from(topMap, ([name, v]) => ({ name, ...v }))
         .sort((a, b) => b.qty - a.qty)
