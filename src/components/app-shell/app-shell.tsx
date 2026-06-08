@@ -28,7 +28,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const nav = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  soon?: boolean;
+};
+
+const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/vendas", label: "Vendas", icon: ShoppingCart },
   { to: "/estoque", label: "Estoque", icon: Package },
@@ -38,7 +45,7 @@ const nav = [
   { to: "/importacoes", label: "Importações", icon: Plane, soon: true },
   { to: "/marketing", label: "Marketing", icon: Megaphone, soon: true },
   { to: "/configuracoes", label: "Configurações", icon: Settings, soon: true },
-] as const;
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
