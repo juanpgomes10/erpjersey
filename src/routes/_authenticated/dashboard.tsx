@@ -260,7 +260,7 @@ function DashboardPage() {
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Faturamento" value={fmtBRL(data?.faturamento)} loading={isLoading} icon={DollarSign} />
-        <Kpi label="Lucro" value={fmtBRL(data?.lucro)} loading={isLoading} icon={TrendingUp} />
+        <Kpi label="LUCRO BRUTO" value={fmtBRL(data?.lucro)} loading={isLoading} icon={TrendingUp} />
         <Kpi label="Vendas" value={String(data?.vendas ?? 0)} loading={isLoading} icon={ShoppingBag} />
         <Kpi
           label="Ticket médio"
@@ -287,7 +287,7 @@ function DashboardPage() {
         />
         <Kpi label="Clientes" value={String(data?.clientes ?? 0)} loading={isLoading} icon={Users} />
         <Kpi
-          label="Importações em curso"
+          label="IMPORTAÇÕES EM ANDAMENTO"
           value={String(data?.importacoesAndamento ?? 0)}
           loading={isLoading}
           icon={Plane}
