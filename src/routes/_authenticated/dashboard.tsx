@@ -110,11 +110,13 @@ function DashboardPage() {
       const startIso = start.toISOString();
       const endIso = end.toISOString();
 
-      const [salesRange, products, customers, orders, imports, saleItems, lastSales] =
+      const [salesRange, products, customers, orders, imports, lastSales] =
         await Promise.all([
           supabase
             .from("sales")
-            .select("id, total_value, profit, payment_method, created_at")
+            .select(
+              "id, total_value, profit, payment_method, created_at, sale_items(quantity, unit_price, product:products(name))",
+            )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
             .eq("status", "concluida"),
