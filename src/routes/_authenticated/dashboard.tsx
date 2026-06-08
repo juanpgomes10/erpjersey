@@ -143,17 +143,7 @@ function DashboardPage() {
             .limit(5),
         ]);
 
-      // Placeholder removed below
-          supabase
-            .from("sales")
-            .select(
-              "id, total_value, payment_method, created_at, customer_name_snapshot, customer:customers(name)",
-            )
-            .gte("created_at", startIso)
-            .lt("created_at", endIso)
-            .order("created_at", { ascending: false })
-            .limit(5),
-        ]);
+
 
       const sales = salesRange.data ?? [];
       const prods = products.data ?? [];
