@@ -94,18 +94,16 @@ function NavList({ onNavigate }: { onNavigate: () => void }) {
       {nav.map((item) => {
         const active = pathname.startsWith(item.to);
         const Icon = item.icon;
-        return (
-          <Link
-            key={item.to}
-            to={item.to}
-            onClick={onNavigate}
-            className={`group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              active
-                ? "text-[color:#2563EB]"
-                : "text-[color:#64748B] hover:bg-[color:#1E293B] hover:text-foreground"
-            }`}
-            style={active ? { backgroundColor: "rgba(37,99,235,0.12)" } : {}}
-          >
+        const classes = `group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          active
+            ? "text-[color:#2563EB]"
+            : item.soon
+              ? "cursor-not-allowed text-[color:#475569]"
+              : "text-[color:#64748B] hover:bg-[color:#1E293B] hover:text-foreground"
+        }`;
+        const style = active ? { backgroundColor: "rgba(37,99,235,0.12)" } : undefined;
+        const inner = (
+          <>
             {active && (
               <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-[color:#2563EB]" />
             )}
@@ -116,7 +114,19 @@ function NavList({ onNavigate }: { onNavigate: () => void }) {
                 em breve
               </span>
             )}
-          </Link>
+          </>
+        );
+        if (item.soon) {
+          return (
+            <div key={item.to} className={classes} style={style} aria-disabled>
+              {inner}
+            </div>
+          );
+        }
+        return (
+          <a key={item.to} href={item.to} onClick={(e) => { e.preventDefault(); onNavigate(); window.history.pushState({}, "", item.to); window.dispatchEvent(new PopStateEvent("popstate")); }} className={classes} style={style}>
+            {inner}
+          </a>
         );
       })}
     </nav>
