@@ -316,7 +316,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const totalCalc = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const paidValue = paidValueStr === "" ? totalCalc : Number(paidValueStr) || 0;
   const netValue = netValueStr === "" ? paidValue : Number(netValueStr) || 0;
-  const totalCost = cart.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const shippingCost = Number(shippingCostStr) || 0;
+  const itemsCost = cart.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const totalCost = itemsCost + shippingCost;
   const profit = netValue - totalCost;
 
   // Reflete o total automaticamente até o usuário editar
