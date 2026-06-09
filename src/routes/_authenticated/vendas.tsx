@@ -358,6 +358,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           payment_method: paymentMethod as never,
           status: "concluida",
           notes: notes || null,
+          ...(saleDate && saleDate !== todayStr()
+            ? { created_at: new Date(`${saleDate}T12:00:00`).toISOString() }
+            : {}),
         } as never)
         .select()
         .single();
