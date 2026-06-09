@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Receipt, X } from "lucide-react";
+import { Plus, Search, Receipt, X, UserPlus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
+import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -28,6 +30,14 @@ import {
 import { useProfile } from "@/hooks/use-profile";
 
 type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+
+const SOURCE_OPTIONS = [
+  { value: "estoque", label: "Estoque da loja" },
+  { value: "drop", label: "Drop" },
+  { value: "loja_parceira", label: "Loja parceira / grupo" },
+] as const;
+const sourceLabel = (s: string) =>
+  SOURCE_OPTIONS.find((o) => o.value === s)?.label ?? s;
 
 export const Route = createFileRoute("/_authenticated/vendas")({
   head: () => ({ meta: [{ title: "Vendas — ERPJersey" }] }),
@@ -43,7 +53,7 @@ function VendasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("*, customer:customers(name), items:sale_items(quantity, product:products(name))")
+        .select("*, customer:customers(name), items:sale_items(quantity, product:products(name, model, team, season))")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -97,8 +107,10 @@ function VendasPage() {
                     <th className="px-3 py-2 text-left font-medium">Data</th>
                     <th className="px-3 py-2 text-left font-medium">Cliente</th>
                     <th className="px-3 py-2 text-left font-medium">Itens</th>
+                    <th className="px-3 py-2 text-left font-medium">Origem</th>
                     <th className="px-3 py-2 text-left font-medium">Pagamento</th>
-                    <th className="px-3 py-2 text-right font-medium">Total</th>
+                    <th className="px-3 py-2 text-right font-medium">Pago</th>
+                    <th className="px-3 py-2 text-right font-medium">Líquido</th>
                     <th className="px-3 py-2 text-right font-medium">Lucro</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
                   </tr>
@@ -107,6 +119,8 @@ function VendasPage() {
                   {filtered.map((s) => {
                     const items = s.items as Array<{ quantity: number; product: { name: string } | null }>;
                     const customer = (s.customer as { name: string } | null)?.name ?? s.customer_name_snapshot ?? "—";
+                    const netValue = Number((s as unknown as { net_value?: number }).net_value ?? 0) || Number(s.total_value);
+                    const sourceVal = (s as unknown as { source?: string }).source ?? "estoque";
                     return (
                       <tr key={s.id} className="border-b border-border last:border-none hover:bg-accent/40">
                         <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
@@ -114,8 +128,10 @@ function VendasPage() {
                         <td className="px-3 py-3 text-muted-foreground">
                           {items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0} item(ns)
                         </td>
+                        <td className="px-3 py-3 text-muted-foreground">{sourceLabel(sourceVal)}</td>
                         <td className="px-3 py-3">{paymentMethodLabel[s.payment_method] ?? s.payment_method}</td>
                         <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(Number(s.total_value))}</td>
+                        <td className="px-3 py-3 text-right tabular">{fmtBRL(netValue)}</td>
                         <td className="px-3 py-3 text-right tabular text-[color:#16A34A]">{fmtBRL(Number(s.profit))}</td>
                         <td className="px-3 py-3">
                           <Badge variant={s.status === "concluida" ? "default" : "secondary"}>
@@ -154,6 +170,13 @@ type CartItem = {
   quantity: number;
   unitPrice: number;
   unitCost: number;
+  stockBySize: Record<string, number>;
+};
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  phone: string | null;
 };
 
 function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -161,67 +184,174 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const { data: profile } = useProfile();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
-  const [customerName, setCustomerName] = useState("");
+
+  // Cliente
+  const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [newCustomerNotes, setNewCustomerNotes] = useState("");
+
+  // Pagamento e faturamento
   const [paymentMethod, setPaymentMethod] = useState<string>("pix");
+  const [source, setSource] = useState<"estoque" | "drop" | "loja_parceira">("estoque");
+  const [paidValueStr, setPaidValueStr] = useState("");
+  const [netValueStr, setNetValueStr] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Reset ao fechar
+  useEffect(() => {
+    if (!open) {
+      setCart([]);
+      setProductSearch("");
+      setCustomerMode("cadastrado");
+      setCustomerId(null);
+      setCustomerSearch("");
+      setNewCustomerName("");
+      setNewCustomerPhone("");
+      setNewCustomerNotes("");
+      setPaymentMethod("pix");
+      setSource("estoque");
+      setPaidValueStr("");
+      setNetValueStr("");
+      setNotes("");
+    }
+  }, [open]);
 
   const { data: products } = useQuery({
     queryKey: ["products-search"],
     queryFn: async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, sale_price, cost_price, product_sizes(size, quantity)")
-        .limit(200);
+        .select("id, name, model, team, season, sale_price, cost_price, product_sizes(size, quantity)")
+        .limit(300);
       return data ?? [];
     },
     enabled: open,
   });
 
-  const filteredProducts = (products ?? []).filter((p) =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase()),
-  );
+  const { data: customers } = useQuery({
+    queryKey: ["customers-search"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("id, name, phone")
+        .order("name")
+        .limit(300);
+      return (data ?? []) as CustomerRow[];
+    },
+    enabled: open,
+  });
 
-  const total = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-  const profit = cart.reduce((s, i) => s + (i.unitPrice - i.unitCost) * i.quantity, 0);
+  const filteredProducts = (products ?? []).filter((p) => {
+    if (!productSearch) return true;
+    const q = productSearch.toLowerCase();
+    const m = ((p as { model?: string | null }).model ?? "").toLowerCase();
+    return (
+      p.name.toLowerCase().includes(q) ||
+      (p.team ?? "").toLowerCase().includes(q) ||
+      (p.season ?? "").toLowerCase().includes(q) ||
+      m.includes(q)
+    );
+  });
+
+  const filteredCustomers = (customers ?? []).filter((c) => {
+    if (!customerSearch) return true;
+    const q = customerSearch.toLowerCase();
+    return c.name.toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q);
+  });
+
+  const totalCalc = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+  const paidValue = paidValueStr === "" ? totalCalc : Number(paidValueStr) || 0;
+  const netValue = netValueStr === "" ? paidValue : Number(netValueStr) || 0;
+  const totalCost = cart.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const profit = netValue - totalCost;
+
+  // Reflete o total automaticamente até o usuário editar
+  useEffect(() => {
+    if (paidValueStr === "") return;
+    // se usuário ainda não tocou, nada a fazer
+  }, [paidValueStr]);
+
+  const productLabel = (p: { name: string; team: string | null; season: string | null; model?: string | null }) =>
+    [modelShortLabel(p.model ?? null), p.team, p.season].filter(Boolean).join(" · ") || p.name;
 
   function addItem(p: NonNullable<typeof products>[number], size: SizeOpt) {
+    const stockBySize: Record<string, number> = {};
+    p.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
     setCart((prev) => {
       const existing = prev.find((c) => c.productId === p.id && c.size === size);
       if (existing) {
         return prev.map((c) => c === existing ? { ...c, quantity: c.quantity + 1 } : c);
       }
+      const pp = p as typeof p & { model?: string | null };
+      const label = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
       return [...prev, {
         productId: p.id,
-        productName: p.name,
+        productName: label,
         size,
         quantity: 1,
         unitPrice: Number(p.sale_price),
         unitCost: Number(p.cost_price),
+        stockBySize,
       }];
     });
   }
+
+  const customerValid = useMemo(() => {
+    if (customerMode === "cadastrado") return !!customerId;
+    return newCustomerName.trim().length > 0;
+  }, [customerMode, customerId, newCustomerName]);
 
   const save = useMutation({
     mutationFn: async () => {
       if (!profile?.store_id) throw new Error("Sem loja vinculada");
       if (cart.length === 0) throw new Error("Adicione ao menos um produto");
+      if (!customerValid) throw new Error("Selecione ou cadastre um cliente");
 
+      // 1. Cliente
+      let finalCustomerId: string | null = customerId;
+      let customerNameSnapshot: string | null = null;
+      if (customerMode === "novo") {
+        const { data: created, error: cErr } = await supabase
+          .from("customers")
+          .insert({
+            store_id: profile.store_id,
+            name: newCustomerName.trim(),
+            phone: newCustomerPhone.trim() || null,
+            notes: newCustomerNotes.trim() || null,
+          })
+          .select()
+          .single();
+        if (cErr) throw cErr;
+        finalCustomerId = created.id;
+        customerNameSnapshot = created.name;
+      } else {
+        customerNameSnapshot = customers?.find((c) => c.id === customerId)?.name ?? null;
+      }
+
+      // 2. Venda
       const { data: sale, error } = await supabase
         .from("sales")
         .insert({
           store_id: profile.store_id,
-          customer_name_snapshot: customerName || null,
+          customer_id: finalCustomerId,
+          customer_name_snapshot: customerNameSnapshot,
           user_id: profile.id,
-          total_value: total,
+          total_value: paidValue,
+          net_value: netValue,
+          source,
           profit,
           payment_method: paymentMethod as never,
           status: "concluida",
           notes: notes || null,
-        })
+        } as never)
         .select()
         .single();
       if (error) throw error;
 
+      // 3. Itens
       const { error: itemsErr } = await supabase.from("sale_items").insert(
         cart.map((c) => ({
           sale_id: sale.id,
@@ -240,9 +370,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
-      setCart([]);
-      setCustomerName("");
-      setNotes("");
+      qc.invalidateQueries({ queryKey: ["customers-search"] });
       onOpenChange(false);
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
@@ -250,117 +378,254 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-sora">Nova venda</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Produtos */}
-          <div>
-            <Label className="mb-2 block">Adicionar produto</Label>
+        <div className="space-y-6">
+          {/* 1. CLIENTE */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">1. Cliente</h3>
+            <Tabs value={customerMode} onValueChange={(v) => setCustomerMode(v as "cadastrado" | "novo")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="cadastrado"><UserCheck className="mr-2 h-4 w-4" /> Cliente cadastrado</TabsTrigger>
+                <TabsTrigger value="novo"><UserPlus className="mr-2 h-4 w-4" /> Cliente novo</TabsTrigger>
+              </TabsList>
+              <TabsContent value="cadastrado" className="mt-3 space-y-2">
+                <Input
+                  placeholder="Buscar por nome ou telefone..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                />
+                <div className="max-h-40 overflow-y-auto rounded-md border border-border">
+                  {filteredCustomers.length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">Nenhum cliente encontrado.</p>
+                  ) : (
+                    filteredCustomers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCustomerId(c.id)}
+                        className={`flex w-full items-center justify-between border-b border-border p-3 text-left last:border-none hover:bg-accent ${customerId === c.id ? "bg-accent" : ""}`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.phone ?? "sem telefone"}</p>
+                        </div>
+                        {customerId === c.id && <Badge>Selecionado</Badge>}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="novo" className="mt-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Nome*</Label>
+                    <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Nome completo" />
+                  </div>
+                  <div>
+                    <Label>Telefone</Label>
+                    <Input value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Informações adicionais</Label>
+                  <Input value={newCustomerNotes} onChange={(e) => setNewCustomerNotes(e.target.value)} placeholder="Instagram, cidade, observações..." />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </section>
+
+          {/* 2. PRODUTOS */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">2. Produtos</h3>
             <Input
-              placeholder="Buscar produto..."
+              placeholder="Buscar por time, modelo (1/2/3) ou temporada..."
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
             />
             {productSearch && (
-              <div className="mt-2 max-h-44 overflow-y-auto rounded-md border border-border">
+              <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-border">
                 {filteredProducts.length === 0 ? (
                   <p className="p-3 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
                 ) : (
-                  filteredProducts.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between border-b border-border p-3 last:border-none">
-                      <div>
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
+                  filteredProducts.map((p) => {
+                    const pp = p as typeof p & { model?: string | null };
+                    return (
+                      <div key={p.id} className="flex items-center justify-between gap-3 border-b border-border p-3 last:border-none">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{productLabel(pp)}</p>
+                          <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
+                            const stock = p.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0;
+                            const disabled = source === "estoque" && stock === 0;
+                            return (
+                              <button
+                                key={sz}
+                                onClick={() => addItem(p, sz)}
+                                disabled={disabled}
+                                className="rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-30"
+                                title={source === "estoque" ? `${stock} em estoque` : "Drop / parceira"}
+                              >
+                                {sz}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                          const stock = p.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0;
-                          return (
-                            <button
-                              key={sz}
-                              onClick={() => addItem(p, sz)}
-                              disabled={stock === 0}
-                              className="rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-30"
-                              title={`${stock} em estoque`}
-                            >
-                              {sz}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
-          </div>
 
-          {/* Carrinho */}
-          {cart.length > 0 && (
-            <div className="rounded-md border border-border">
-              {cart.map((c, i) => (
-                <div key={i} className="flex items-center gap-3 border-b border-border p-3 last:border-none">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{c.productName}</p>
-                    <p className="text-xs text-muted-foreground">Tamanho {c.size} · {fmtBRL(c.unitPrice)}</p>
-                  </div>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={c.quantity}
-                    onChange={(e) => {
-                      const q = Math.max(1, Number(e.target.value));
-                      setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, quantity: q } : x));
-                    }}
-                    className="w-16"
-                  />
-                  <span className="tabular text-sm font-medium w-24 text-right">{fmtBRL(c.unitPrice * c.quantity)}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setCart((p) => p.filter((_, idx) => idx !== i))}>
-                    <X className="h-4 w-4" />
-                  </Button>
+            {/* Carrinho */}
+            {cart.length > 0 && (
+              <div className="mt-3 rounded-md border border-border">
+                <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase text-muted-foreground">
+                  <div className="col-span-5">Produto</div>
+                  <div className="col-span-1 text-center">Qtd</div>
+                  <div className="col-span-2 text-right">Preço un.</div>
+                  <div className="col-span-2 text-right">Custo un.</div>
+                  <div className="col-span-1 text-right">Total</div>
+                  <div className="col-span-1"></div>
                 </div>
-              ))}
-            </div>
-          )}
+                {cart.map((c, i) => (
+                  <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
+                    <div className="col-span-5 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.productName}</p>
+                      <p className="text-xs text-muted-foreground">Tamanho {c.size}{source === "estoque" && c.stockBySize[c.size] !== undefined ? ` · ${c.stockBySize[c.size]} em estoque` : ""}</p>
+                    </div>
+                    <div className="col-span-1">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={c.quantity}
+                        onChange={(e) => {
+                          const q = Math.max(1, Number(e.target.value));
+                          setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, quantity: q } : x));
+                        }}
+                        className="h-8 text-center"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={c.unitPrice}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) || 0;
+                          setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, unitPrice: v } : x));
+                        }}
+                        className="h-8 text-right tabular"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={c.unitCost}
+                        onChange={(e) => {
+                          const v = Number(e.target.value) || 0;
+                          setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, unitCost: v } : x));
+                        }}
+                        className="h-8 text-right tabular"
+                      />
+                    </div>
+                    <div className="col-span-1 text-right tabular text-sm font-medium">{fmtBRL(c.unitPrice * c.quantity)}</div>
+                    <div className="col-span-1 text-right">
+                      <Button variant="ghost" size="icon" onClick={() => setCart((p) => p.filter((_, idx) => idx !== i))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
-          {/* Cliente + pagamento */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="cust">Cliente</Label>
-              <Input id="cust" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nome do cliente" />
-            </div>
-            <div>
-              <Label>Forma de pagamento</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(paymentMethodLabel).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {/* 3. PAGAMENTO */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">3. Forma de pagamento</h3>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(paymentMethodLabel).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
 
-          <div>
-            <Label htmlFor="notes">Observações</Label>
-            <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" />
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border pt-3">
-            <div className="text-sm text-muted-foreground">
-              Lucro estimado: <span className="text-[color:#16A34A] tabular">{fmtBRL(profit)}</span>
+          {/* 4. FATURAMENTO */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">4. Dados de faturamento</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Valor pago pelo cliente</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={paidValueStr}
+                  onChange={(e) => setPaidValueStr(e.target.value)}
+                  placeholder={fmtBRL(totalCalc)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Soma do carrinho: <span className="tabular">{fmtBRL(totalCalc)}</span></p>
+              </div>
+              <div>
+                <Label>Valor líquido recebido</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={netValueStr}
+                  onChange={(e) => setNetValueStr(e.target.value)}
+                  placeholder={fmtBRL(paidValue)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Desconte aqui as taxas (cartão, gateway).</p>
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Origem da camisa</Label>
+                <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SOURCE_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {source === "estoque"
+                    ? "O estoque será descontado automaticamente."
+                    : "O estoque NÃO será alterado nesta opção."}
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Observações</Label>
+                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" />
+              </div>
             </div>
-            <div className="font-sora text-xl font-semibold tabular">{fmtBRL(total)}</div>
+          </section>
+
+          {/* Resumo */}
+          <div className="rounded-md border border-border bg-muted/30 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <span>Custo total: <span className="tabular">{fmtBRL(totalCost)}</span></span>
+              <span>Líquido: <span className="tabular">{fmtBRL(netValue)}</span></span>
+              <span className={profit >= 0 ? "text-[color:#16A34A]" : "text-destructive"}>
+                Lucro: <span className="tabular">{fmtBRL(profit)}</span>
+              </span>
+              <span className="font-sora text-lg font-semibold tabular">{fmtBRL(paidValue)}</span>
+            </div>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0 || !customerValid}>
             {save.isPending ? "Salvando..." : "Confirmar venda"}
           </Button>
         </DialogFooter>
