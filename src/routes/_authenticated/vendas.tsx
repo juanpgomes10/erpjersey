@@ -589,6 +589,21 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 ))}
               </div>
             )}
+
+            {cart.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full border-dashed"
+                onClick={() => {
+                  setProductSearch("");
+                  setTimeout(() => productSearchRef.current?.focus(), 0);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Adicionar outro produto
+              </Button>
+            )}
           </section>
 
           {/* 3. PAGAMENTO */}
