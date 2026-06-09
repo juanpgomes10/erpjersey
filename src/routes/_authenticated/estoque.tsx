@@ -47,6 +47,7 @@ type ProductRow = {
   name: string;
   team: string | null;
   season: string | null;
+  model: string | null;
   supplier: string | null;
   cost_price: number;
   sale_price: number;
