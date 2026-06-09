@@ -221,6 +221,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [source, setSource] = useState<"estoque" | "drop" | "loja_parceira">("estoque");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
+  const [shippingCostStr, setShippingCostStr] = useState("");
   const [notes, setNotes] = useState("");
 
   // Data da venda
