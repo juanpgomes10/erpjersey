@@ -326,26 +326,78 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const productLabel = (p: { name: string; team: string | null; season: string | null; model?: string | null }) =>
     [modelShortLabel(p.model ?? null), p.team, p.season].filter(Boolean).join(" · ") || p.name;
 
-  function addItem(p: NonNullable<typeof products>[number], size: SizeOpt) {
-    const stockBySize: Record<string, number> = {};
-    p.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
-    setCart((prev) => {
-      const existing = prev.find((c) => c.productId === p.id && c.size === size);
-      if (existing) {
-        return prev.map((c) => c === existing ? { ...c, quantity: c.quantity + 1 } : c);
-      }
-      const pp = p as typeof p & { model?: string | null };
-      const label = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
-      return [...prev, {
-        productId: p.id,
-        productName: label,
-        size,
-        quantity: 1,
-        unitPrice: Number(p.sale_price),
-        unitCost: Number(p.cost_price),
-        stockBySize,
-      }];
+  function selectProduct(p: NonNullable<typeof products>[number]) {
+    const pp = p as typeof p & { model?: string | null };
+    setSelectedProduct({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      season: p.season,
+      model: pp.model ?? null,
+      sale_price: p.sale_price,
+      cost_price: p.cost_price,
+      product_sizes: p.product_sizes,
     });
+    setManualMode(false);
+    setCfgSize(null);
+    setCfgGender("masculina");
+    setCfgCostStr(Number(p.cost_price) > 0 ? String(p.cost_price) : "");
+    setCfgPriceStr(Number(p.sale_price) > 0 ? String(p.sale_price) : "");
+  }
+
+  function confirmAddItem() {
+    if (!cfgSize) {
+      toast.error("Selecione o tamanho");
+      return;
+    }
+    const price = Number(cfgPriceStr) || 0;
+    const cost = Number(cfgCostStr) || 0;
+    if (price <= 0) {
+      toast.error("Informe o valor pago pelo cliente");
+      return;
+    }
+
+    let productId: string | null = null;
+    let baseLabel = "";
+    const stockBySize: Record<string, number> = {};
+
+    if (manualMode) {
+      const nameParts = [
+        manualName.trim() || "Camisa avulsa",
+        manualTeam.trim(),
+        manualModel.trim() ? modelShortLabel(manualModel.trim()) : "",
+        manualSeason.trim(),
+      ].filter(Boolean);
+      baseLabel = nameParts.join(" · ");
+    } else if (selectedProduct) {
+      productId = selectedProduct.id;
+      const pp = selectedProduct;
+      baseLabel = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
+      pp.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
+    } else {
+      return;
+    }
+
+    const genderLabel = cfgGender === "masculina" ? "Masc." : cfgGender === "feminina" ? "Fem." : "Infantil";
+    const fullLabel = `${baseLabel} · ${genderLabel}`;
+
+    setCart((prev) => [
+      ...prev,
+      {
+        productId,
+        productName: fullLabel,
+        size: cfgSize,
+        gender: cfgGender,
+        quantity: 1,
+        unitPrice: price,
+        unitCost: cost,
+        stockBySize,
+      },
+    ]);
+
+    resetConfigurator();
+    setProductSearch("");
+    setTimeout(() => productSearchRef.current?.focus(), 0);
   }
 
   const customerValid = useMemo(() => {
