@@ -264,6 +264,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSource("estoque");
       setPaidValueStr("");
       setNetValueStr("");
+      setShippingCostStr("");
       setNotes("");
       setSaleDate(todayStr());
     }
