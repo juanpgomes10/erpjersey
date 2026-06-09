@@ -221,6 +221,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [source, setSource] = useState<"estoque" | "drop" | "loja_parceira">("estoque");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
+  const [shippingCostStr, setShippingCostStr] = useState("");
   const [notes, setNotes] = useState("");
 
   // Data da venda
@@ -263,6 +264,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSource("estoque");
       setPaidValueStr("");
       setNetValueStr("");
+      setShippingCostStr("");
       setNotes("");
       setSaleDate(todayStr());
     }
@@ -314,7 +316,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const totalCalc = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const paidValue = paidValueStr === "" ? totalCalc : Number(paidValueStr) || 0;
   const netValue = netValueStr === "" ? paidValue : Number(netValueStr) || 0;
-  const totalCost = cart.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const shippingCost = Number(shippingCostStr) || 0;
+  const itemsCost = cart.reduce((s, i) => s + i.unitCost * i.quantity, 0);
+  const totalCost = itemsCost + shippingCost;
   const profit = netValue - totalCost;
 
   // Reflete o total automaticamente até o usuário editar
@@ -708,7 +712,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" onClick={resetConfigurator}>Cancelar</Button>
-                  <Button type="button" onClick={confirmAddItem}>Adicionar ao carrinho</Button>
+                  <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
                 </div>
               </div>
             )}
@@ -833,20 +837,15 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 <p className="mt-1 text-xs text-muted-foreground">Desconte aqui as taxas (cartão, gateway).</p>
               </div>
               <div className="sm:col-span-2">
-                <Label>Origem da camisa</Label>
-                <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {SOURCE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {source === "estoque"
-                    ? "O estoque será descontado automaticamente."
-                    : "O estoque NÃO será alterado nesta opção."}
-                </p>
+                <Label>Custo de frete (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={shippingCostStr}
+                  onChange={(e) => setShippingCostStr(e.target.value)}
+                  placeholder="0,00"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Se houver, será somado ao custo total e reduzirá o lucro.</p>
               </div>
               <div className="sm:col-span-2">
                 <Label>Observações</Label>
