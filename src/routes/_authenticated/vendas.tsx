@@ -712,7 +712,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
                 <div className="flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" onClick={resetConfigurator}>Cancelar</Button>
-                  <Button type="button" onClick={confirmAddItem}>Adicionar ao carrinho</Button>
+                  <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
                 </div>
               </div>
             )}
