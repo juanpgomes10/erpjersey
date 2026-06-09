@@ -251,6 +251,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     if (!open) {
       setCart([]);
       setProductSearch("");
+      resetConfigurator();
       setCustomerMode("cadastrado");
       setCustomerId(null);
       setCustomerSearch("");
