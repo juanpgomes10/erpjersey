@@ -307,14 +307,25 @@ function ProductDialog({
             <Label htmlFor="pname">Nome*</Label>
             <Input id="pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Camisa Flamengo 2024 Home" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label>Time / Coleção</Label>
+              <Label>Time</Label>
               <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Ex: Flamengo" />
             </div>
             <div>
               <Label>Temporada</Label>
               <Input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Ex: 2024/25" />
+            </div>
+            <div>
+              <Label>Modelo</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div>
