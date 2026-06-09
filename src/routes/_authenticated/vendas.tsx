@@ -164,9 +164,10 @@ function EmptyState() {
 }
 
 type CartItem = {
-  productId: string;
+  productId: string | null;
   productName: string;
   size: SizeOpt;
+  gender: "masculina" | "feminina" | "infantil";
   quantity: number;
   unitPrice: number;
   unitCost: number;
@@ -184,6 +185,28 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const { data: profile } = useProfile();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
+
+  // Configurador do item (após selecionar produto)
+  type ProductLite = {
+    id: string;
+    name: string;
+    team: string | null;
+    season: string | null;
+    model?: string | null;
+    sale_price: number | string;
+    cost_price: number | string;
+    product_sizes?: Array<{ size: string; quantity: number }>;
+  };
+  const [selectedProduct, setSelectedProduct] = useState<ProductLite | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualTeam, setManualTeam] = useState("");
+  const [manualModel, setManualModel] = useState("");
+  const [manualSeason, setManualSeason] = useState("");
+  const [cfgSize, setCfgSize] = useState<SizeOpt | null>(null);
+  const [cfgGender, setCfgGender] = useState<"masculina" | "feminina" | "infantil">("masculina");
+  const [cfgCostStr, setCfgCostStr] = useState("");
+  const [cfgPriceStr, setCfgPriceStr] = useState("");
 
   // Cliente
   const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
@@ -211,11 +234,25 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   // Ref para focar busca de produto ao "adicionar mais"
   const productSearchRef = useRef<HTMLInputElement>(null);
 
+  function resetConfigurator() {
+    setSelectedProduct(null);
+    setManualMode(false);
+    setManualName("");
+    setManualTeam("");
+    setManualModel("");
+    setManualSeason("");
+    setCfgSize(null);
+    setCfgGender("masculina");
+    setCfgCostStr("");
+    setCfgPriceStr("");
+  }
+
   // Reset ao fechar
   useEffect(() => {
     if (!open) {
       setCart([]);
       setProductSearch("");
+      resetConfigurator();
       setCustomerMode("cadastrado");
       setCustomerId(null);
       setCustomerSearch("");
@@ -289,26 +326,78 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const productLabel = (p: { name: string; team: string | null; season: string | null; model?: string | null }) =>
     [modelShortLabel(p.model ?? null), p.team, p.season].filter(Boolean).join(" · ") || p.name;
 
-  function addItem(p: NonNullable<typeof products>[number], size: SizeOpt) {
-    const stockBySize: Record<string, number> = {};
-    p.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
-    setCart((prev) => {
-      const existing = prev.find((c) => c.productId === p.id && c.size === size);
-      if (existing) {
-        return prev.map((c) => c === existing ? { ...c, quantity: c.quantity + 1 } : c);
-      }
-      const pp = p as typeof p & { model?: string | null };
-      const label = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
-      return [...prev, {
-        productId: p.id,
-        productName: label,
-        size,
-        quantity: 1,
-        unitPrice: Number(p.sale_price),
-        unitCost: Number(p.cost_price),
-        stockBySize,
-      }];
+  function selectProduct(p: NonNullable<typeof products>[number]) {
+    const pp = p as typeof p & { model?: string | null };
+    setSelectedProduct({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      season: p.season,
+      model: pp.model ?? null,
+      sale_price: p.sale_price,
+      cost_price: p.cost_price,
+      product_sizes: p.product_sizes,
     });
+    setManualMode(false);
+    setCfgSize(null);
+    setCfgGender("masculina");
+    setCfgCostStr(Number(p.cost_price) > 0 ? String(p.cost_price) : "");
+    setCfgPriceStr(Number(p.sale_price) > 0 ? String(p.sale_price) : "");
+  }
+
+  function confirmAddItem() {
+    if (!cfgSize) {
+      toast.error("Selecione o tamanho");
+      return;
+    }
+    const price = Number(cfgPriceStr) || 0;
+    const cost = Number(cfgCostStr) || 0;
+    if (price <= 0) {
+      toast.error("Informe o valor pago pelo cliente");
+      return;
+    }
+
+    let productId: string | null = null;
+    let baseLabel = "";
+    const stockBySize: Record<string, number> = {};
+
+    if (manualMode) {
+      const nameParts = [
+        manualName.trim() || "Camisa avulsa",
+        manualTeam.trim(),
+        manualModel.trim() ? modelShortLabel(manualModel.trim()) : "",
+        manualSeason.trim(),
+      ].filter(Boolean);
+      baseLabel = nameParts.join(" · ");
+    } else if (selectedProduct) {
+      productId = selectedProduct.id;
+      const pp = selectedProduct;
+      baseLabel = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
+      pp.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
+    } else {
+      return;
+    }
+
+    const genderLabel = cfgGender === "masculina" ? "Masc." : cfgGender === "feminina" ? "Fem." : "Infantil";
+    const fullLabel = `${baseLabel} · ${genderLabel}`;
+
+    setCart((prev) => [
+      ...prev,
+      {
+        productId,
+        productName: fullLabel,
+        size: cfgSize,
+        gender: cfgGender,
+        quantity: 1,
+        unitPrice: price,
+        unitCost: cost,
+        stockBySize,
+      },
+    ]);
+
+    resetConfigurator();
+    setProductSearch("");
+    setTimeout(() => productSearchRef.current?.focus(), 0);
   }
 
   const customerValid = useMemo(() => {
@@ -489,7 +578,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
             />
-            {productSearch && (
+            {productSearch && !selectedProduct && !manualMode && (
               <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-border">
                 {filteredProducts.length === 0 ? (
                   <p className="p-3 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
@@ -497,32 +586,130 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                   filteredProducts.map((p) => {
                     const pp = p as typeof p & { model?: string | null };
                     return (
-                      <div key={p.id} className="flex items-center justify-between gap-3 border-b border-border p-3 last:border-none">
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => selectProduct(p)}
+                        className="flex w-full items-center justify-between gap-3 border-b border-border p-3 text-left last:border-none hover:bg-accent"
+                      >
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{productLabel(pp)}</p>
                           <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
                         </div>
-                        <div className="flex gap-1">
-                          {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                            const stock = p.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0;
-                            const disabled = source === "estoque" && stock === 0;
-                            return (
-                              <button
-                                key={sz}
-                                onClick={() => addItem(p, sz)}
-                                disabled={disabled}
-                                className="rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-30"
-                                title={source === "estoque" ? `${stock} em estoque` : "Drop / parceira"}
-                              >
-                                {sz}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                        <span className="text-xs text-muted-foreground">Selecionar →</span>
+                      </button>
                     );
                   })
                 )}
+                <button
+                  type="button"
+                  onClick={() => { setManualMode(true); setSelectedProduct(null); setCfgSize(null); setCfgGender("masculina"); setCfgCostStr(""); setCfgPriceStr(""); }}
+                  className="flex w-full items-center gap-2 border-t border-border bg-muted/40 p-3 text-left text-sm font-medium hover:bg-accent"
+                >
+                  <Plus className="h-4 w-4" /> Não encontrou? Criar novo produto
+                </button>
+              </div>
+            )}
+
+            {/* Configurador */}
+            {(selectedProduct || manualMode) && (
+              <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Configurar item</p>
+                    <p className="text-sm font-medium truncate">
+                      {manualMode ? "Novo produto avulso" : productLabel(selectedProduct!)}
+                    </p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" onClick={resetConfigurator}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {manualMode && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <Label>Nome / descrição*</Label>
+                      <Input value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="Ex.: Camisa retrô" />
+                    </div>
+                    <div>
+                      <Label>Time</Label>
+                      <Input value={manualTeam} onChange={(e) => setManualTeam(e.target.value)} placeholder="Ex.: Flamengo" />
+                    </div>
+                    <div>
+                      <Label>Modelo</Label>
+                      <Input value={manualModel} onChange={(e) => setManualModel(e.target.value)} placeholder="1, 2, 3 ou edição especial" />
+                    </div>
+                    <div>
+                      <Label>Temporada</Label>
+                      <Input value={manualSeason} onChange={(e) => setManualSeason(e.target.value)} placeholder="2024/2025" />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="mb-1.5 block">Tamanho*</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
+                      const stock = !manualMode ? selectedProduct?.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0 : 0;
+                      const showStock = !manualMode && source === "estoque";
+                      return (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => setCfgSize(sz)}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
+                        >
+                          {sz}{showStock ? ` (${stock})` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="mb-1.5 block">Gênero*</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(["masculina", "feminina", "infantil"] as const).map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setCfgGender(g)}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium capitalize transition ${cfgGender === g ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Custo aproximado (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={cfgCostStr}
+                      onChange={(e) => setCfgCostStr(e.target.value)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Valor pago pelo cliente (R$)*</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={cfgPriceStr}
+                      onChange={(e) => setCfgPriceStr(e.target.value)}
+                      placeholder="0,00"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button type="button" variant="outline" onClick={resetConfigurator}>Cancelar</Button>
+                  <Button type="button" onClick={confirmAddItem}>Adicionar ao carrinho</Button>
+                </div>
               </div>
             )}
 
