@@ -252,6 +252,7 @@ function ProductDialog({
         name: name.trim(),
         team: team.trim() || null,
         season: season.trim() || null,
+        model: model || null,
         supplier: supplier.trim() || null,
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
