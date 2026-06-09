@@ -217,6 +217,7 @@ function ProductDialog({
   const [name, setName] = useState(product?.name ?? "");
   const [team, setTeam] = useState(product?.team ?? "");
   const [season, setSeason] = useState(product?.season ?? "");
+  const [model, setModel] = useState<string>(product?.model ?? "1");
   const [supplier, setSupplier] = useState(product?.supplier ?? "");
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
