@@ -23,6 +23,20 @@ import { Label } from "@/components/ui/label";
 const SIZES = ["P", "M", "G", "GG", "XGG"] as const;
 type Size = (typeof SIZES)[number];
 
+export const MODEL_OPTIONS = [
+  { value: "1", label: "Camisa 1 (Home / Titular)" },
+  { value: "2", label: "Camisa 2 (Away / Reserva)" },
+  { value: "3", label: "Camisa 3 (Third)" },
+  { value: "4", label: "Camisa 4" },
+  { value: "edicao_especial", label: "Edição especial" },
+] as const;
+
+export const modelShortLabel = (m: string | null | undefined) => {
+  if (!m) return "";
+  const f = MODEL_OPTIONS.find((o) => o.value === m);
+  return f ? (m === "edicao_especial" ? "Edição especial" : `Camisa ${m}`) : m;
+};
+
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({ meta: [{ title: "Estoque — ERPJersey" }] }),
   component: EstoquePage,
