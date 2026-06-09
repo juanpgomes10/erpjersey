@@ -360,6 +360,7 @@ export type Database = {
           id: string
           image_url: string | null
           min_stock: number
+          model: string | null
           name: string
           notes: string | null
           sale_price: number
@@ -375,6 +376,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           min_stock?: number
+          model?: string | null
           name: string
           notes?: string | null
           sale_price?: number
@@ -390,6 +392,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           min_stock?: number
+          model?: string | null
           name?: string
           notes?: string | null
           sale_price?: number
@@ -504,9 +507,11 @@ export type Database = {
           customer_id: string | null
           customer_name_snapshot: string | null
           id: string
+          net_value: number
           notes: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           profit: number
+          source: Database["public"]["Enums"]["sale_source"]
           status: Database["public"]["Enums"]["sale_status"]
           store_id: string
           total_value: number
@@ -518,9 +523,11 @@ export type Database = {
           customer_id?: string | null
           customer_name_snapshot?: string | null
           id?: string
+          net_value?: number
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           profit?: number
+          source?: Database["public"]["Enums"]["sale_source"]
           status?: Database["public"]["Enums"]["sale_status"]
           store_id: string
           total_value?: number
@@ -532,9 +539,11 @@ export type Database = {
           customer_id?: string | null
           customer_name_snapshot?: string | null
           id?: string
+          net_value?: number
           notes?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           profit?: number
+          source?: Database["public"]["Enums"]["sale_source"]
           status?: Database["public"]["Enums"]["sale_status"]
           store_id?: string
           total_value?: number
@@ -674,6 +683,7 @@ export type Database = {
         | "transferencia"
         | "outro"
       product_size: "P" | "M" | "G" | "GG" | "XGG"
+      sale_source: "estoque" | "drop" | "loja_parceira"
       sale_status: "concluida" | "cancelada"
       transaction_category:
         | "venda"
@@ -834,6 +844,7 @@ export const Constants = {
         "outro",
       ],
       product_size: ["P", "M", "G", "GG", "XGG"],
+      sale_source: ["estoque", "drop", "loja_parceira"],
       sale_status: ["concluida", "cancelada"],
       transaction_category: [
         "venda",
