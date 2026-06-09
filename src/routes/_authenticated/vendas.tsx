@@ -399,6 +399,31 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* 0. DATA DA VENDA */}
+          <section className="rounded-md border border-border bg-muted/20 p-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[180px]">
+                <Label>Data da venda</Label>
+                <Input
+                  type="date"
+                  value={saleDate}
+                  onChange={(e) => setSaleDate(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                variant={saleDate === todayStr() ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSaleDate(todayStr())}
+              >
+                Hoje
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {saleDate === todayStr() ? "Usando data de hoje." : "Data personalizada selecionada."}
+              </p>
+            </div>
+          </section>
+
           {/* 1. CLIENTE */}
           <section>
             <h3 className="font-sora text-sm font-semibold mb-2">1. Cliente</h3>
