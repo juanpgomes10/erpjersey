@@ -153,7 +153,7 @@ function EstoquePage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{p.name}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {[p.team, p.season].filter(Boolean).join(" · ") || "—"}
+                          {[modelShortLabel(p.model), p.team, p.season].filter(Boolean).join(" · ") || "—"}
                         </p>
                       </div>
                     </div>
