@@ -40,7 +40,7 @@ const nav: NavItem[] = [
   { to: "/vendas", label: "Vendas", icon: ShoppingCart },
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/financeiro", label: "Financeiro", icon: Wallet, soon: true },
-  { to: "/pedidos", label: "Pedidos", icon: ClipboardList, soon: true },
+  { to: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { to: "/clientes", label: "Clientes", icon: Users, soon: true },
   { to: "/importacoes", label: "Importações", icon: Plane, soon: true },
   { to: "/marketing", label: "Marketing", icon: Megaphone, soon: true },
