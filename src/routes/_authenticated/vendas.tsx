@@ -164,9 +164,10 @@ function EmptyState() {
 }
 
 type CartItem = {
-  productId: string;
+  productId: string | null;
   productName: string;
   size: SizeOpt;
+  gender: "masculina" | "feminina" | "infantil";
   quantity: number;
   unitPrice: number;
   unitCost: number;
