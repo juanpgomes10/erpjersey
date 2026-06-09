@@ -185,6 +185,28 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [cart, setCart] = useState<CartItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
 
+  // Configurador do item (após selecionar produto)
+  type ProductLite = {
+    id: string;
+    name: string;
+    team: string | null;
+    season: string | null;
+    model?: string | null;
+    sale_price: number | string;
+    cost_price: number | string;
+    product_sizes?: Array<{ size: string; quantity: number }>;
+  };
+  const [selectedProduct, setSelectedProduct] = useState<ProductLite | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualTeam, setManualTeam] = useState("");
+  const [manualModel, setManualModel] = useState("");
+  const [manualSeason, setManualSeason] = useState("");
+  const [cfgSize, setCfgSize] = useState<SizeOpt | null>(null);
+  const [cfgGender, setCfgGender] = useState<"masculina" | "feminina" | "infantil">("masculina");
+  const [cfgCostStr, setCfgCostStr] = useState("");
+  const [cfgPriceStr, setCfgPriceStr] = useState("");
+
   // Cliente
   const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
   const [customerId, setCustomerId] = useState<string | null>(null);
@@ -210,6 +232,19 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
   // Ref para focar busca de produto ao "adicionar mais"
   const productSearchRef = useRef<HTMLInputElement>(null);
+
+  function resetConfigurator() {
+    setSelectedProduct(null);
+    setManualMode(false);
+    setManualName("");
+    setManualTeam("");
+    setManualModel("");
+    setManualSeason("");
+    setCfgSize(null);
+    setCfgGender("masculina");
+    setCfgCostStr("");
+    setCfgPriceStr("");
+  }
 
   // Reset ao fechar
   useEffect(() => {
