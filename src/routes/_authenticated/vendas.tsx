@@ -480,8 +480,11 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
           {/* 2. PRODUTOS */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">2. Produtos</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">
+              2. Produtos {cart.length > 0 && <span className="font-normal text-muted-foreground">({cart.length} no carrinho)</span>}
+            </h3>
             <Input
+              ref={productSearchRef}
               placeholder="Buscar por time, modelo (1/2/3) ou temporada..."
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
