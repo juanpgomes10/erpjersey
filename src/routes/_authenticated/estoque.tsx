@@ -233,6 +233,7 @@ function ProductDialog({
   if (open && product && product.id !== (window as unknown as { _lastP?: string })._lastP) {
     (window as unknown as { _lastP?: string })._lastP = product.id;
     setName(product.name); setTeam(product.team ?? ""); setSeason(product.season ?? "");
+    setModel(product.model ?? "1");
     setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
     setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
     setMinStock(String(product.min_stock));
