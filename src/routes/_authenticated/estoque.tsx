@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Package, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL } from "@/lib/format";
@@ -38,11 +38,30 @@ export const MODEL_OPTIONS = [
   { value: "edicao_especial", label: "Edição especial" },
 ] as const;
 
+export const CATEGORY_OPTIONS = [
+  { value: "brasileiros", label: "Times brasileiros" },
+  { value: "internacionais", label: "Times internacionais" },
+  { value: "retro", label: "Camisas retrô" },
+  { value: "selecoes", label: "Seleções" },
+  { value: "nba", label: "NBA" },
+  { value: "agasalhos", label: "Agasalhos" },
+  { value: "outros", label: "Outros" },
+] as const;
+
+export const GENDER_OPTIONS = [
+  { value: "masculina", label: "Masculina" },
+  { value: "feminina", label: "Feminina" },
+  { value: "infantil", label: "Infantil" },
+] as const;
+
 export const modelShortLabel = (m: string | null | undefined) => {
   if (!m) return "";
   const f = MODEL_OPTIONS.find((o) => o.value === m);
   return f ? (m === "edicao_especial" ? "Edição especial" : `Camisa ${m}`) : m;
 };
+
+const categoryLabel = (c: string | null | undefined) =>
+  CATEGORY_OPTIONS.find((o) => o.value === c)?.label ?? null;
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({ meta: [{ title: "Estoque — ERPJersey" }] }),
@@ -55,12 +74,15 @@ type ProductRow = {
   team: string | null;
   season: string | null;
   model: string | null;
+  category: string | null;
+  gender: string | null;
   supplier: string | null;
   cost_price: number;
   sale_price: number;
   image_url: string | null;
   min_stock: number;
   notes: string | null;
+  created_at: string;
   product_sizes: Array<{ size: Size; quantity: number }>;
 };
 
@@ -68,10 +90,16 @@ function EstoquePage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ProductRow | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [fCategory, setFCategory] = useState<string>("all");
+  const [fGender, setFGender] = useState<string>("all");
+  const [fSize, setFSize] = useState<string>("all");
+  const [fTeam, setFTeam] = useState("");
+  const [sort, setSort] = useState<"recent" | "old" | "name">("recent");
   const qc = useQueryClient();
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ["products"],
+    queryKey: ["products-stock"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -82,15 +110,51 @@ function EstoquePage() {
     },
   });
 
-  const filtered = (products ?? []).filter((p) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.team ?? "").toLowerCase().includes(q) ||
-      (p.supplier ?? "").toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    const list = (products ?? []).filter((p) => {
+      // Only show products that the user actually has in stock
+      const total = p.product_sizes.reduce((s, x) => s + x.quantity, 0);
+      if (total <= 0) return false;
+
+      if (search) {
+        const q = search.toLowerCase();
+        const hit =
+          p.name.toLowerCase().includes(q) ||
+          (p.team ?? "").toLowerCase().includes(q) ||
+          (p.supplier ?? "").toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (fCategory !== "all" && p.category !== fCategory) return false;
+      if (fGender !== "all" && p.gender !== fGender) return false;
+      if (fTeam && !(p.team ?? "").toLowerCase().includes(fTeam.toLowerCase())) return false;
+      if (fSize !== "all") {
+        const sz = p.product_sizes.find((s) => s.size === fSize);
+        if (!sz || sz.quantity <= 0) return false;
+      }
+      return true;
+    });
+
+    list.sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name);
+      const da = new Date(a.created_at).getTime();
+      const db = new Date(b.created_at).getTime();
+      return sort === "recent" ? db - da : da - db;
+    });
+    return list;
+  }, [products, search, fCategory, fGender, fSize, fTeam, sort]);
+
+  const activeFilterCount =
+    (fCategory !== "all" ? 1 : 0) +
+    (fGender !== "all" ? 1 : 0) +
+    (fSize !== "all" ? 1 : 0) +
+    (fTeam ? 1 : 0);
+
+  function clearFilters() {
+    setFCategory("all");
+    setFGender("all");
+    setFSize("all");
+    setFTeam("");
+  }
 
   const del = useMutation({
     mutationFn: async (id: string) => {
@@ -99,6 +163,7 @@ function EstoquePage() {
     },
     onSuccess: () => {
       toast.success("Produto excluído");
+      qc.invalidateQueries({ queryKey: ["products-stock"] });
       qc.invalidateQueries({ queryKey: ["products"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro"),
@@ -113,7 +178,9 @@ function EstoquePage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-sora text-2xl font-semibold">Estoque</h1>
-          <p className="text-sm text-muted-foreground">Cadastre e controle seus produtos</p>
+          <p className="text-sm text-muted-foreground">
+            Adicione camisas conforme forem entrando na loja
+          </p>
         </div>
         <Button onClick={() => { setEditing(null); setOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" /> Novo produto
@@ -121,29 +188,114 @@ function EstoquePage() {
       </div>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome, time ou fornecedor..."
-              className="pl-9"
-            />
+        <CardContent className="p-4 space-y-3">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nome, time ou fornecedor..."
+                className="pl-9"
+              />
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters((v) => !v)}
+              className="shrink-0"
+            >
+              <Filter className="mr-2 h-4 w-4" />
+              Filtros
+              {activeFilterCount > 0 && (
+                <Badge className="ml-2 h-5 px-1.5">{activeFilterCount}</Badge>
+              )}
+            </Button>
+            <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+              <SelectTrigger className="w-[170px] shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Mais recentes</SelectItem>
+                <SelectItem value="old">Mais antigos</SelectItem>
+                <SelectItem value="name">Nome (A-Z)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
+          {showFilters && (
+            <div className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <Label className="text-xs">Categoria</Label>
+                <Select value={fCategory} onValueChange={setFCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {CATEGORY_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Gênero</Label>
+                <Select value={fGender} onValueChange={setFGender}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {GENDER_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Tamanho</Label>
+                <Select value={fSize} onValueChange={setFSize}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {SIZES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Time</Label>
+                <Input
+                  value={fTeam}
+                  onChange={(e) => setFTeam(e.target.value)}
+                  placeholder="Ex: Flamengo"
+                />
+              </div>
+              {activeFilterCount > 0 && (
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="mr-1 h-3 w-3" /> Limpar filtros
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           {isLoading ? (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 font-sora text-lg font-semibold">Nenhum produto no estoque</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Cadastre o primeiro para começar.</p>
+              <h3 className="mt-4 font-sora text-lg font-semibold">
+                {(products ?? []).some((p) => p.product_sizes.reduce((s, x) => s + x.quantity, 0) > 0)
+                  ? "Nenhum produto corresponde aos filtros"
+                  : "Seu estoque está vazio"}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Clique em "Novo produto" para adicionar a primeira camisa.
+              </p>
             </div>
           ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => {
                 const totalQty = p.product_sizes.reduce((s, x) => s + x.quantity, 0);
                 const isLow = totalQty <= p.min_stock;
@@ -162,6 +314,18 @@ function EstoquePage() {
                         <p className="text-xs text-muted-foreground truncate">
                           {[modelShortLabel(p.model), p.team, p.season].filter(Boolean).join(" · ") || "—"}
                         </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {categoryLabel(p.category) && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {categoryLabel(p.category)}
+                            </Badge>
+                          )}
+                          {p.gender && (
+                            <Badge variant="outline" className="text-[10px] capitalize">
+                              {p.gender}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -225,6 +389,8 @@ function ProductDialog({
   const [team, setTeam] = useState(product?.team ?? "");
   const [season, setSeason] = useState(product?.season ?? "");
   const [model, setModel] = useState<string>(product?.model ?? "1");
+  const [category, setCategory] = useState<string>(product?.category ?? "brasileiros");
+  const [gender, setGender] = useState<string>(product?.gender ?? "masculina");
   const [supplier, setSupplier] = useState(product?.supplier ?? "");
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
@@ -241,6 +407,8 @@ function ProductDialog({
     (window as unknown as { _lastP?: string })._lastP = product.id;
     setName(product.name); setTeam(product.team ?? ""); setSeason(product.season ?? "");
     setModel(product.model ?? "1");
+    setCategory(product.category ?? "brasileiros");
+    setGender(product.gender ?? "masculina");
     setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
     setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
     setMinStock(String(product.min_stock));
@@ -260,6 +428,8 @@ function ProductDialog({
         team: team.trim() || null,
         season: season.trim() || null,
         model: model || null,
+        category: category || null,
+        gender: gender || null,
         supplier: supplier.trim() || null,
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
@@ -289,6 +459,7 @@ function ProductDialog({
     },
     onSuccess: () => {
       toast.success(product ? "Produto atualizado!" : "Produto cadastrado!");
+      qc.invalidateQueries({ queryKey: ["products-stock"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       onOpenChange(false);
     },
@@ -322,6 +493,30 @@ function ProductDialog({
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Categoria</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Gênero</Label>
+              <Select value={gender} onValueChange={setGender}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {GENDER_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
