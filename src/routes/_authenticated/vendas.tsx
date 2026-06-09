@@ -837,20 +837,15 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 <p className="mt-1 text-xs text-muted-foreground">Desconte aqui as taxas (cartão, gateway).</p>
               </div>
               <div className="sm:col-span-2">
-                <Label>Origem da camisa</Label>
-                <Select value={source} onValueChange={(v) => setSource(v as typeof source)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {SOURCE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {source === "estoque"
-                    ? "O estoque será descontado automaticamente."
-                    : "O estoque NÃO será alterado nesta opção."}
-                </p>
+                <Label>Custo de frete (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={shippingCostStr}
+                  onChange={(e) => setShippingCostStr(e.target.value)}
+                  placeholder="0,00"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Se houver, será somado ao custo total e reduzirá o lucro.</p>
               </div>
               <div className="sm:col-span-2">
                 <Label>Observações</Label>
