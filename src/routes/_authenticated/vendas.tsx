@@ -200,6 +200,17 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [netValueStr, setNetValueStr] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Data da venda
+  const todayStr = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+  const [saleDate, setSaleDate] = useState<string>(todayStr());
+
+  // Ref para focar busca de produto ao "adicionar mais"
+  const productSearchRef = useRef<HTMLInputElement>(null);
+
   // Reset ao fechar
   useEffect(() => {
     if (!open) {
@@ -216,6 +227,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setPaidValueStr("");
       setNetValueStr("");
       setNotes("");
+      setSaleDate(todayStr());
     }
   }, [open]);
 
