@@ -19,9 +19,30 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const SIZES = ["P", "M", "G", "GG", "XGG"] as const;
 type Size = (typeof SIZES)[number];
+
+export const MODEL_OPTIONS = [
+  { value: "1", label: "Camisa 1 (Home / Titular)" },
+  { value: "2", label: "Camisa 2 (Away / Reserva)" },
+  { value: "3", label: "Camisa 3 (Third)" },
+  { value: "4", label: "Camisa 4" },
+  { value: "edicao_especial", label: "Edição especial" },
+] as const;
+
+export const modelShortLabel = (m: string | null | undefined) => {
+  if (!m) return "";
+  const f = MODEL_OPTIONS.find((o) => o.value === m);
+  return f ? (m === "edicao_especial" ? "Edição especial" : `Camisa ${m}`) : m;
+};
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({ meta: [{ title: "Estoque — ERPJersey" }] }),
@@ -33,6 +54,7 @@ type ProductRow = {
   name: string;
   team: string | null;
   season: string | null;
+  model: string | null;
   supplier: string | null;
   cost_price: number;
   sale_price: number;
@@ -138,7 +160,7 @@ function EstoquePage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{p.name}</p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {[p.team, p.season].filter(Boolean).join(" · ") || "—"}
+                          {[modelShortLabel(p.model), p.team, p.season].filter(Boolean).join(" · ") || "—"}
                         </p>
                       </div>
                     </div>
@@ -202,6 +224,7 @@ function ProductDialog({
   const [name, setName] = useState(product?.name ?? "");
   const [team, setTeam] = useState(product?.team ?? "");
   const [season, setSeason] = useState(product?.season ?? "");
+  const [model, setModel] = useState<string>(product?.model ?? "1");
   const [supplier, setSupplier] = useState(product?.supplier ?? "");
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
@@ -217,6 +240,7 @@ function ProductDialog({
   if (open && product && product.id !== (window as unknown as { _lastP?: string })._lastP) {
     (window as unknown as { _lastP?: string })._lastP = product.id;
     setName(product.name); setTeam(product.team ?? ""); setSeason(product.season ?? "");
+    setModel(product.model ?? "1");
     setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
     setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
     setMinStock(String(product.min_stock));
@@ -235,6 +259,7 @@ function ProductDialog({
         name: name.trim(),
         team: team.trim() || null,
         season: season.trim() || null,
+        model: model || null,
         supplier: supplier.trim() || null,
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
@@ -282,14 +307,25 @@ function ProductDialog({
             <Label htmlFor="pname">Nome*</Label>
             <Input id="pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Camisa Flamengo 2024 Home" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <Label>Time / Coleção</Label>
+              <Label>Time</Label>
               <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Ex: Flamengo" />
             </div>
             <div>
               <Label>Temporada</Label>
               <Input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Ex: 2024/25" />
+            </div>
+            <div>
+              <Label>Modelo</Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MODEL_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div>
