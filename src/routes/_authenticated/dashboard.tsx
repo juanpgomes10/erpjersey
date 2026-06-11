@@ -218,13 +218,109 @@ function DashboardPage() {
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
 
+      // ===== Importações =====
+      const importsList = importsAll.data ?? [];
+      const ACTIVE_STATUSES = ["comprado", "enviado", "em_transito", "chegou_brasil", "aguardando_taxa", "saiu_entrega"];
+      const importacoesAndamento = importsList.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
+      const importsInRange = importsList.filter((i) => {
+        const t = new Date(i.created_at).getTime();
+        return t >= start.getTime() && t < end.getTime();
+      });
+      const deliveredInRange = importsInRange.filter((i) => i.status === "entregue");
+      // tempo médio de entrega: created_at → updated_at (atualizado quando vira "entregue")
+      const avgDeliveryDays = deliveredInRange.length
+        ? Math.round(
+            deliveredInRange.reduce(
+              (s, i) => s + (new Date(i.updated_at).getTime() - new Date(i.created_at).getTime()),
+              0,
+            ) / deliveredInRange.length / 86400000,
+          )
+        : 0;
+      const importsGastoBRL = importsInRange.reduce((s, i) => s + Number(i.total_value ?? 0), 0);
+      const tributosPendentes = importsList
+        .filter((i) => i.status === "aguardando_taxa")
+        .reduce((s, i) => s + Number(i.customs_fee ?? 0), 0);
+      // Distribuição por status
+      const STATUS_LABEL: Record<string, string> = {
+        comprado: "Comprado",
+        enviado: "Enviado",
+        em_transito: "Em trânsito",
+        chegou_brasil: "Chegou ao BR",
+        aguardando_taxa: "Aguard. tributos",
+        barrado_alfandega: "Barrado",
+        saiu_entrega: "Saiu p/ entrega",
+        entregue: "Entregue",
+        cancelado: "Cancelado",
+      };
+      const statusMap = new Map<string, number>();
+      importsList.forEach((i) => statusMap.set(i.status, (statusMap.get(i.status) ?? 0) + 1));
+      const importsByStatus = Array.from(statusMap, ([k, v]) => ({ name: STATUS_LABEL[k] ?? k, value: v, key: k }));
+      // Importações por mês (últimos 6 meses)
+      const importsMonthly: { label: string; novas: number; entregues: number; gasto: number }[] = [];
+      for (let m = 5; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const monthList = importsList.filter((i) => {
+          const t = new Date(i.created_at).getTime();
+          return t >= d.getTime() && t < next.getTime();
+        });
+        importsMonthly.push({
+          label: d.toLocaleDateString("pt-BR", { month: "short" }),
+          novas: monthList.length,
+          entregues: monthList.filter((i) => i.status === "entregue").length,
+          gasto: monthList.reduce((s, i) => s + Number(i.total_value ?? 0), 0),
+        });
+      }
+      // Tempo de entrega por mês (entregas concluídas naquele mês via updated_at)
+      const deliveryTimeMonthly: { label: string; days: number }[] = [];
+      for (let m = 5; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const delivered = importsList.filter((i) => {
+          const t = new Date(i.updated_at).getTime();
+          return i.status === "entregue" && t >= d.getTime() && t < next.getTime();
+        });
+        const avg = delivered.length
+          ? Math.round(
+              delivered.reduce(
+                (s, i) => s + (new Date(i.updated_at).getTime() - new Date(i.created_at).getTime()),
+                0,
+              ) / delivered.length / 86400000,
+            )
+          : 0;
+        deliveryTimeMonthly.push({
+          label: d.toLocaleDateString("pt-BR", { month: "short" }),
+          days: avg,
+        });
+      }
+      // Top fornecedores no período
+      const supplierMap = new Map<string, { count: number; total: number }>();
+      importsInRange.forEach((i) => {
+        const k = i.supplier ?? "—";
+        const c = supplierMap.get(k) ?? { count: 0, total: 0 };
+        c.count += 1;
+        c.total += Number(i.total_value ?? 0);
+        supplierMap.set(k, c);
+      });
+      const topSuppliers = Array.from(supplierMap, ([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
       return {
         faturamento,
         lucro,
         vendas: sales.length,
         pedidosPendentes: orders.count ?? 0,
         clientes: customers.count ?? 0,
-        importacoesAndamento: imports.count ?? 0,
+        importacoesAndamento,
+        avgDeliveryDays,
+        importsGastoBRL,
+        tributosPendentes,
+        importsByStatus,
+        importsMonthly,
+        deliveryTimeMonthly,
+        topSuppliers,
+        deliveredCount: deliveredInRange.length,
         estoqueBaixo: lowStock.length,
         chartDays,
         chartMethods,
