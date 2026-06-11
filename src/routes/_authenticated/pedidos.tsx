@@ -623,9 +623,7 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const addToCart = () => {
     if (!selected) return;
     if (!cfgSize) { toast.error("Selecione o tamanho"); return; }
-    const stock = selected.product_sizes?.find((s) => s.size === cfgSize)?.quantity ?? 0;
     if (cfgQty < 1) { toast.error("Quantidade inválida"); return; }
-    if (cfgQty > stock) toast.warning(`Estoque atual: ${stock}. Pedido será reservado.`);
     const price = Number(cfgPriceStr) || 0;
     if (price <= 0) { toast.error("Informe o preço"); return; }
     const label = `${selected.team ?? selected.name}${selected.model ? ` ${modelShortLabel(selected.model)}` : ""}${selected.season ? ` ${selected.season}` : ""}`;
@@ -636,8 +634,9 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
       size: cfgSize,
       quantity: cfgQty,
       unitPrice: price,
-      stock,
+      stock: 0,
     }]);
+
     setSelected(null);
     setCfgSize(null);
     setCfgQty(1);
