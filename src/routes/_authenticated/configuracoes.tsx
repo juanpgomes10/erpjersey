@@ -8,7 +8,7 @@ import {
   Bell,
   Shield,
   Palette,
-  Users as UsersIcon,
+  
   Upload,
   Eye,
   EyeOff,
