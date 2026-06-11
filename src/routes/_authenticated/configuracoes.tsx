@@ -1161,12 +1161,16 @@ function IntegrationCard({
 
   const handleSync = async () => {
     setSyncing(true);
+    const tid = toast.loading("Sincronizando clientes e pedidos...");
     try {
       const res: any = await sync({ data: { platform } });
-      toast.success(`Sincronizado: ${res?.imported ?? 0} pedido(s) importado(s)`);
+      const o = res?.ordersImported ?? res?.imported ?? 0;
+      const c = res?.customersImported ?? 0;
+      const t = res?.trackingsImported ?? 0;
+      toast.success(`✅ ${o} pedido(s), ${c} cliente(s) e ${t} rastreio(s) importados`, { id: tid });
       onChange();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao sincronizar");
+      toast.error(e?.message ?? "Erro ao sincronizar", { id: tid });
     } finally {
       setSyncing(false);
     }
