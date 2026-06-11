@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Users, ShoppingBag, DollarSign, Calendar } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Search, Users, ShoppingBag, Repeat, Calendar, Plus, Check, ChevronsUpDown, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,8 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useProfile } from "@/hooks/use-profile";
+import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientesPage,
@@ -64,11 +79,15 @@ type CustomerAgg = Customer & {
 function ClientesPage() {
   const { data: profile } = useProfile();
   const storeId = profile?.store?.id;
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"top" | "recent" | "name" | "orders">("top");
   const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [teamOpen, setTeamOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openNew, setOpenNew] = useState(false);
+
 
   const { data: customers, isLoading: lc } = useQuery({
     queryKey: ["customers", storeId],
@@ -164,7 +183,9 @@ function ClientesPage() {
   const totals = useMemo(() => {
     const revenue = aggregated.reduce((s, c) => s + c.totalSpent, 0);
     const active = aggregated.filter((c) => c.ordersCount > 0).length;
-    return { revenue, active, total: aggregated.length };
+    const recurring = aggregated.filter((c) => c.ordersCount >= 2).length;
+    const recurrenceRate = active > 0 ? (recurring / active) * 100 : 0;
+    return { revenue, active, total: aggregated.length, recurring, recurrenceRate };
   }, [aggregated]);
 
   const selected = selectedId ? aggregated.find((c) => c.id === selectedId) ?? null : null;
@@ -172,15 +193,26 @@ function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-sora text-2xl font-semibold">Clientes</h1>
-        <p className="text-sm text-muted-foreground">Histórico, ticket médio e comportamento de compra</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-sora text-2xl font-semibold">Clientes</h1>
+          <p className="text-sm text-muted-foreground">Histórico, ticket médio e comportamento de compra</p>
+        </div>
+        <Button onClick={() => setOpenNew(true)} className="bg-[color:#2563EB] hover:bg-[color:#1D4ED8]">
+          <Plus className="mr-2 h-4 w-4" /> Novo cliente
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard icon={<Users className="h-4 w-4" />} label="Clientes" value={String(totals.total)} color="#2563EB" />
         <KpiCard icon={<ShoppingBag className="h-4 w-4" />} label="Ativos (com pedidos)" value={String(totals.active)} color="#16A34A" />
-        <KpiCard icon={<DollarSign className="h-4 w-4" />} label="Receita acumulada" value={fmtBRL(totals.revenue)} color="#D97706" />
+        <KpiCard
+          icon={<Repeat className="h-4 w-4" />}
+          label="Taxa de recorrência"
+          value={`${totals.recurrenceRate.toFixed(0)}%`}
+          sub={`${totals.recurring} de ${totals.active} compraram 2x+`}
+          color="#D97706"
+        />
         <KpiCard
           icon={<Calendar className="h-4 w-4" />}
           label="Ticket médio"
@@ -195,7 +227,7 @@ function ClientesPage() {
             <div className="relative md:col-span-5">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, telefone, Instagram, cidade..."
+                placeholder="Buscar por nome, telefone, cidade..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -210,20 +242,53 @@ function ClientesPage() {
                 <SelectItem value="name">Nome (A–Z)</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="md:col-span-2"><SelectValue placeholder="Time" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os times</SelectItem>
-                {allTeams.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={teamOpen} onOpenChange={setTeamOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="md:col-span-2 w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {teamFilter === "all" ? "Todos os times" : teamFilter}
+                  </span>
+                  {teamFilter !== "all" ? (
+                    <X
+                      className="ml-2 h-4 w-4 opacity-60 hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); setTeamFilter("all"); }}
+                    />
+                  ) : (
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[260px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar time..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum time encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem onSelect={() => { setTeamFilter("all"); setTeamOpen(false); }}>
+                        <Check className={cn("mr-2 h-4 w-4", teamFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        Todos os times
+                      </CommandItem>
+                      {allTeams.map((t) => (
+                        <CommandItem key={t} value={t} onSelect={() => { setTeamFilter(t); setTeamOpen(false); }}>
+                          <Check className={cn("mr-2 h-4 w-4", teamFilter === t ? "opacity-100" : "opacity-0")} />
+                          {t}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="md:col-span-2"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="com-pedidos">Com pedidos</SelectItem>
+
                 <SelectItem value="sem-pedidos">Sem pedidos</SelectItem>
                 <SelectItem value="inativos">Inativos (90+ dias)</SelectItem>
               </SelectContent>
@@ -358,11 +423,18 @@ function ClientesPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <NewCustomerDialog
+        open={openNew}
+        onOpenChange={setOpenNew}
+        storeId={storeId}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["customers"] })}
+      />
     </div>
   );
 }
 
-function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string }) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -371,10 +443,94 @@ function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: 
           {label}
         </div>
         <div className="mt-2 font-sora text-xl font-semibold" style={{ color }}>{value}</div>
+        {sub && <div className="mt-1 text-[11px] text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>
   );
 }
+
+function NewCustomerDialog({
+  open, onOpenChange, storeId, onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  storeId: string | undefined;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [city, setCity] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!storeId) throw new Error("Loja não encontrada");
+      if (!name.trim()) throw new Error("Informe o nome do cliente");
+      const { error } = await supabase.from("customers").insert({
+        store_id: storeId,
+        name: name.trim(),
+        phone: phone.trim() || null,
+        instagram: instagram.trim() || null,
+        city: city.trim() || null,
+        notes: notes.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cliente cadastrado");
+      setName(""); setPhone(""); setInstagram(""); setCity(""); setNotes("");
+      onCreated();
+      onOpenChange(false);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao cadastrar"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Novo cliente</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Nome *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Telefone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+            </div>
+            <div>
+              <Label>Cidade</Label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" />
+            </div>
+          </div>
+          <div>
+            <Label>Instagram</Label>
+            <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@usuario" />
+          </div>
+          <div>
+            <Label>Observações</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || !name.trim()}
+            className="bg-[color:#2563EB] hover:bg-[color:#1D4ED8]"
+          >
+            {mut.isPending ? "Salvando..." : "Cadastrar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
