@@ -8,7 +8,7 @@ import {
   Bell,
   Shield,
   Palette,
-  Users as UsersIcon,
+  
   Upload,
   Eye,
   EyeOff,
@@ -119,7 +119,6 @@ function ConfiguracoesPage() {
           <TabTrigger value="aparencia" icon={Palette} label="Aparência" />
           <TabTrigger value="exportar" icon={Download} label="Exportar Dados" />
           <TabTrigger value="integracoes" icon={Plug} label="Integrações" />
-          <TabTrigger value="usuarios" icon={UsersIcon} label="Usuários" soon />
         </TabsList>
 
         <div className="min-w-0 flex-1">
@@ -130,7 +129,6 @@ function ConfiguracoesPage() {
           <TabsContent value="aparencia" className="m-0"><AparenciaTab /></TabsContent>
           <TabsContent value="exportar" className="m-0"><ExportarTab /></TabsContent>
           <TabsContent value="integracoes" className="m-0"><IntegracoesTab /></TabsContent>
-          <TabsContent value="usuarios" className="m-0"><UsuariosTab /></TabsContent>
         </div>
       </Tabs>
     </div>
@@ -849,39 +847,6 @@ function ThemeCard({ active, onClick, mode }: { active: boolean; onClick: () => 
   );
 }
 
-/* ---------------- USUÁRIOS ---------------- */
-
-function UsuariosTab() {
-  const { user } = useAuth();
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="font-sora">Usuários</CardTitle>
-          <Badge variant="secondary">Em breve</Badge>
-        </div>
-        <CardDescription>Gerencie quem tem acesso à sua loja.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-[color:#2563EB] text-sm text-white">
-                {(user?.email ?? "U").charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="text-sm font-medium">{user?.email}</div>
-              <div className="text-xs text-muted-foreground">Você</div>
-            </div>
-          </div>
-          <Badge className="bg-[color:#2563EB] text-white">Admin</Badge>
-        </div>
-        <Button variant="outline" disabled title="Disponível em breve">+ Convidar usuário</Button>
-      </CardContent>
-    </Card>
-  );
-}
 
 /* ---------------- shared ---------------- */
 
@@ -1154,18 +1119,6 @@ function IntegracoesTab() {
         integration={nuvem}
         onChange={refetch}
       />
-      <Card className="opacity-70">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="font-sora text-base">WhatsApp Business API</CardTitle>
-            <Badge variant="outline" className="border-[color:#1E293B] text-[10px]">Em breve</Badge>
-          </div>
-          <CardDescription>Envie notificações automáticas para clientes via WhatsApp</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button disabled className="w-full" title="Disponível em breve">Conectar</Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
