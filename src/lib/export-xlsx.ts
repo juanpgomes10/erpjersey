@@ -88,7 +88,7 @@ export async function fetchOrdersRows(range: { from: string; to: string }, statu
   let q = supabase
     .from("orders")
     .select(
-      "id, order_number, created_at, total_value, discount, payment_method, status, customers(name), order_items(quantity, product_name_snapshot)",
+      "id, order_number, created_at, total_value, discount, payment_method, status, customers(name), order_items(quantity, products(name))",
     )
     .gte("created_at", range.from)
     .lte("created_at", range.to)
@@ -101,7 +101,7 @@ export async function fetchOrdersRows(range: { from: string; to: string }, statu
     "Nº Pedido": String(o.order_number ?? "").padStart(4, "0"),
     Cliente: o.customers?.name ?? "",
     Produtos: (o.order_items ?? [])
-      .map((i: any) => `${i.product_name_snapshot} x${i.quantity}`)
+      .map((i: any) => `${i.products?.name ?? "—"} x${i.quantity}`)
       .join(", "),
     "Valor total": fmtMoney(Number(o.total_value) - Number(o.discount || 0)),
     "Forma de pagamento": o.payment_method,
