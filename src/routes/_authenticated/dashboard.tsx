@@ -318,12 +318,11 @@ function DashboardPage() {
         deliveryTimeMonthly,
         topSuppliers,
         deliveredCount: deliveredInRange.length,
-        estoqueBaixo: lowStock.length,
         chartDays,
         chartMethods,
         top5,
         lastSales: lastSales.data ?? [],
-        lowStockList: lowStock.slice(0, 5),
+
       };
     },
   });
