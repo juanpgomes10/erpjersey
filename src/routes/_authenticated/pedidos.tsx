@@ -289,7 +289,14 @@ function PedidosPage() {
                           onClick={() => setDetailId(o.id)}
                           className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
                         >
-                          <td className="px-3 py-3 font-medium tabular">{orderNum(o.order_number)}</td>
+                          <td className="px-3 py-3 font-medium tabular">
+                            <div className="flex items-center gap-2">
+                              <span>{orderNum(o.order_number)}</span>
+                              {o.source === "shopify" && (
+                                <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-3 py-3">{o.customer?.name ?? "—"}</td>
                           <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
                           <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
