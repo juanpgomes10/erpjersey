@@ -514,30 +514,6 @@ function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Estoque baixo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : (data?.lowStockList?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">Tudo certo no estoque.</p>
-            ) : (
-              <ul className="space-y-3 text-sm">
-                {data!.lowStockList.map((p) => {
-                  const qty = (p.product_sizes ?? []).reduce((s, ps) => s + ps.quantity, 0);
-                  return (
-                    <li key={p.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate">{p.name}</span>
-                      <span className="tabular text-[color:#D97706]">{qty} un</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Importações */}
