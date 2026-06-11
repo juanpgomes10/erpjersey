@@ -31,12 +31,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  listIntegrations,
-  connectIntegration,
-  disconnectIntegration,
-  syncIntegration,
-} from "@/lib/integrations.functions";
-import {
   fetchSalesRows,
   fetchOrdersRows,
   fetchCustomersRows,
