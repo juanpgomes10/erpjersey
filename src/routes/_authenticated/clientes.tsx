@@ -423,11 +423,18 @@ function ClientesPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <NewCustomerDialog
+        open={openNew}
+        onOpenChange={setOpenNew}
+        storeId={storeId}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["customers"] })}
+      />
     </div>
   );
 }
 
-function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function KpiCard({ icon, label, value, sub, color }: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string }) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -436,10 +443,94 @@ function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: 
           {label}
         </div>
         <div className="mt-2 font-sora text-xl font-semibold" style={{ color }}>{value}</div>
+        {sub && <div className="mt-1 text-[11px] text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>
   );
 }
+
+function NewCustomerDialog({
+  open, onOpenChange, storeId, onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  storeId: string | undefined;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [city, setCity] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!storeId) throw new Error("Loja não encontrada");
+      if (!name.trim()) throw new Error("Informe o nome do cliente");
+      const { error } = await supabase.from("customers").insert({
+        store_id: storeId,
+        name: name.trim(),
+        phone: phone.trim() || null,
+        instagram: instagram.trim() || null,
+        city: city.trim() || null,
+        notes: notes.trim() || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cliente cadastrado");
+      setName(""); setPhone(""); setInstagram(""); setCity(""); setNotes("");
+      onCreated();
+      onOpenChange(false);
+    },
+    onError: (e: any) => toast.error(e.message ?? "Erro ao cadastrar"),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Novo cliente</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label>Nome *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome completo" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Telefone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+            </div>
+            <div>
+              <Label>Cidade</Label>
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" />
+            </div>
+          </div>
+          <div>
+            <Label>Instagram</Label>
+            <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@usuario" />
+          </div>
+          <div>
+            <Label>Observações</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending || !name.trim()}
+            className="bg-[color:#2563EB] hover:bg-[color:#1D4ED8]"
+          >
+            {mut.isPending ? "Salvando..." : "Cadastrar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
