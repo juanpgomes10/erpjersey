@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Users, ShoppingBag, DollarSign, Calendar } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Search, Users, ShoppingBag, Repeat, Calendar, Plus, Check, ChevronsUpDown, X } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -15,8 +19,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useProfile } from "@/hooks/use-profile";
+import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/_authenticated/clientes")({
   component: ClientesPage,
