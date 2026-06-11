@@ -117,7 +117,7 @@ export const Route = createFileRoute("/_authenticated/pedidos")({
 function PedidosPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<OrderStatus | "todos">("todos");
-  const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes">("todos");
+  const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "12meses">("todos");
   const [openNew, setOpenNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
