@@ -281,7 +281,7 @@ function PedidosPage() {
                       const total = Number(o.total_value) - Number(o.discount || 0);
                       const firstItem = o.items[0];
                       const productSummary = firstItem
-                        ? `${firstItem.product?.team ?? firstItem.product?.name ?? "Produto"}${o.items.length > 1 ? ` + ${o.items.length - 1} ${o.items.length - 1 === 1 ? "item" : "itens"}` : ""}`
+                        ? `${firstItem.product?.team ?? firstItem.product?.name ?? firstItem.product_name ?? "Produto"}${o.items.length > 1 ? ` + ${o.items.length - 1} ${o.items.length - 1 === 1 ? "item" : "itens"}` : ""}`
                         : "—";
                       return (
                         <tr
