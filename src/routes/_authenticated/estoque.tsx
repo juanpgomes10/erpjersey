@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Package, AlertTriangle, Pencil, Trash2, Filter, X } from "lucide-react";
+import { Plus, Search, Package, Pencil, Trash2, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL } from "@/lib/format";
@@ -80,7 +80,7 @@ type ProductRow = {
   cost_price: number;
   sale_price: number;
   image_url: string | null;
-  min_stock: number;
+  min_stock?: number;
   notes: string | null;
   created_at: string;
   product_sizes: Array<{ size: Size; quantity: number }>;
@@ -297,9 +297,8 @@ function EstoquePage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => {
-                const totalQty = p.product_sizes.reduce((s, x) => s + x.quantity, 0);
-                const isLow = totalQty <= p.min_stock;
                 return (
+
                   <div key={p.id} className="group rounded-lg border border-border bg-[color:var(--card)] p-4 transition-colors hover:border-[color:#2563EB]">
                     <div className="flex items-start gap-3">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-[color:#1E293B] overflow-hidden">
@@ -346,12 +345,8 @@ function EstoquePage() {
 
                     <div className="mt-3 flex items-center justify-between">
                       <span className="font-sora text-sm font-semibold tabular">{fmtBRL(p.sale_price)}</span>
-                      {isLow && (
-                        <Badge variant="outline" className="border-[color:#D97706] text-[color:#D97706]">
-                          <AlertTriangle className="mr-1 h-3 w-3" /> Estoque baixo
-                        </Badge>
-                      )}
                     </div>
+
 
                     <div className="mt-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditing(p); setOpen(true); }}>
@@ -395,7 +390,7 @@ function ProductDialog({
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
-  const [minStock, setMinStock] = useState(String(product?.min_stock ?? "5"));
+  
   const [sizes, setSizes] = useState<Record<Size, string>>(() => {
     const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
     product?.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
@@ -411,7 +406,7 @@ function ProductDialog({
     setGender(product.gender ?? "masculina");
     setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
     setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
-    setMinStock(String(product.min_stock));
+    
     const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
     product.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
     setSizes(init);
@@ -434,7 +429,7 @@ function ProductDialog({
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
         image_url: imageUrl.trim() || null,
-        min_stock: Number(minStock) || 0,
+
       };
 
       let productId: string;
@@ -527,7 +522,7 @@ function ProductDialog({
             <Label>Fornecedor</Label>
             <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Ex: Fornecedor X" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Custo*</Label>
               <Input type="number" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
@@ -536,11 +531,8 @@ function ProductDialog({
               <Label>Venda*</Label>
               <Input type="number" step="0.01" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
             </div>
-            <div>
-              <Label>Mín. estoque</Label>
-              <Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-            </div>
           </div>
+
           <div>
             <Label>URL da imagem</Label>
             <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />

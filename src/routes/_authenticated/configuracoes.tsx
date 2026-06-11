@@ -455,8 +455,6 @@ function LojaTab() {
 /* ---------------- NOTIFICAÇÕES ---------------- */
 
 type NotifPrefs = {
-  stock_minimum: boolean;
-  stock_zero: boolean;
   import_taxed: boolean;
   import_blocked: boolean;
   import_out_for_delivery: boolean;
@@ -467,7 +465,6 @@ type NotifPrefs = {
 };
 
 const DEFAULT_PREFS: NotifPrefs = {
-  stock_minimum: true, stock_zero: true,
   import_taxed: true, import_blocked: true,
   import_out_for_delivery: true, import_delivered: true,
   financial_due: true, financial_due_days: 3,
@@ -494,7 +491,6 @@ function NotificacoesTab() {
       if (data) {
         const d = data as any;
         setPrefs({
-          stock_minimum: d.stock_minimum, stock_zero: d.stock_zero,
           import_taxed: d.import_taxed, import_blocked: d.import_blocked,
           import_out_for_delivery: d.import_out_for_delivery, import_delivered: d.import_delivered,
           financial_due: d.financial_due, financial_due_days: d.financial_due_days,
@@ -504,6 +500,7 @@ function NotificacoesTab() {
       setLoaded(true);
     })();
   }, [user]);
+
 
   async function update<K extends keyof NotifPrefs>(key: K, value: NotifPrefs[K]) {
     if (!user || !storeId) return;

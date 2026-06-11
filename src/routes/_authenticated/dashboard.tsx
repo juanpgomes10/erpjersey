@@ -125,7 +125,7 @@ function DashboardPage() {
             .eq("status", "concluida"),
           supabase
             .from("products")
-            .select("id, name, min_stock, sale_price, product_sizes(quantity, size)"),
+            .select("id, name, sale_price, product_sizes(quantity, size)"),
           supabase.from("customers").select("id", { count: "exact", head: true }),
           supabase
             .from("orders")
@@ -200,10 +200,6 @@ function DashboardPage() {
         value: v,
       }));
 
-      const lowStock = prods.filter((p) => {
-        const qty = (p.product_sizes ?? []).reduce((s, ps) => s + ps.quantity, 0);
-        return qty <= (p.min_stock ?? 0);
-      });
 
       const topMap = new Map<string, { qty: number; total: number }>();
       sales.forEach((s) => {
@@ -322,12 +318,11 @@ function DashboardPage() {
         deliveryTimeMonthly,
         topSuppliers,
         deliveredCount: deliveredInRange.length,
-        estoqueBaixo: lowStock.length,
         chartDays,
         chartMethods,
         top5,
         lastSales: lastSales.data ?? [],
-        lowStockList: lowStock.slice(0, 5),
+
       };
     },
   });
@@ -374,13 +369,6 @@ function DashboardPage() {
           value={String(data?.pedidosPendentes ?? 0)}
           loading={isLoading}
           icon={AlertTriangle}
-          variant="warning"
-        />
-        <Kpi
-          label="Alertas de estoque"
-          value={String(data?.estoqueBaixo ?? 0)}
-          loading={isLoading}
-          icon={Package}
           variant="warning"
         />
         <Kpi label="Clientes" value={String(data?.clientes ?? 0)} loading={isLoading} icon={Users} />
@@ -465,7 +453,8 @@ function DashboardPage() {
       </div>
 
       {/* Lists */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Top 5 produtos</CardTitle>
@@ -526,30 +515,6 @@ function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Estoque baixo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-40 w-full" />
-            ) : (data?.lowStockList?.length ?? 0) === 0 ? (
-              <p className="text-sm text-muted-foreground">Tudo certo no estoque.</p>
-            ) : (
-              <ul className="space-y-3 text-sm">
-                {data!.lowStockList.map((p) => {
-                  const qty = (p.product_sizes ?? []).reduce((s, ps) => s + ps.quantity, 0);
-                  return (
-                    <li key={p.id} className="flex items-center justify-between gap-2">
-                      <span className="truncate">{p.name}</span>
-                      <span className="tabular text-[color:#D97706]">{qty} un</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Importações */}

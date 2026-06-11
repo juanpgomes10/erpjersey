@@ -655,8 +655,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                   <Label className="mb-1.5 block">Tamanho*</Label>
                   <div className="flex flex-wrap gap-2">
                     {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                      const stock = !manualMode ? selectedProduct?.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0 : 0;
-                      const showStock = !manualMode && source === "estoque";
                       return (
                         <button
                           key={sz}
@@ -664,10 +662,11 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                           onClick={() => setCfgSize(sz)}
                           className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
                         >
-                          {sz}{showStock ? ` (${stock})` : ""}
+                          {sz}
                         </button>
                       );
                     })}
+
                   </div>
                 </div>
 
@@ -732,7 +731,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
                     <div className="col-span-5 min-w-0">
                       <p className="text-sm font-medium truncate">{c.productName}</p>
-                      <p className="text-xs text-muted-foreground">Tamanho {c.size}{source === "estoque" && c.stockBySize[c.size] !== undefined ? ` · ${c.stockBySize[c.size]} em estoque` : ""}</p>
+                      <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
                     </div>
                     <div className="col-span-1">
                       <Input
