@@ -118,7 +118,7 @@ const STATUS_META: Record<
   enviado: { label: "Enviado", color: "#60A5FA", bg: "rgba(96,165,250,0.15)" },
   em_transito: { label: "Em trânsito", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
   chegou_brasil: { label: "Chegou ao Brasil", color: "#A855F7", bg: "rgba(168,85,247,0.15)" },
-  aguardando_taxa: { label: "Aguardando taxa", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  aguardando_taxa: { label: "Aguardando pagamento de tributos", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   barrado_alfandega: { label: "Barrado na alfândega", color: "#EF4444", bg: "rgba(239,68,68,0.15)" },
   saiu_entrega: { label: "Saiu para entrega", color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
   entregue: { label: "Entregue", color: "#22C55E", bg: "rgba(34,197,94,0.15)" },
