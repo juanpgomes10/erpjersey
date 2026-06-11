@@ -162,102 +162,119 @@ export const syncIntegration = createServerFn({ method: "POST" })
     if (data.platform === "shopify") {
       const base = shopifyBase(integ.store_url!);
       const token = integ.access_token!;
-      // Only last 90 days, capped pages — keeps worker under CPU budget
-      const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      // Janela fixa: pedidos a partir de 01/01/2026
+      const since = new Date("2026-01-01T00:00:00Z").toISOString();
 
-      // ---------- CUSTOMERS (batched) ----------
-      const customers = await fetchShopifyPaged(
-        `${base}/customers.json?limit=250&updated_at_min=${since}`,
-        token,
-        "customers",
-        4,
-      );
-
-      const customerMap = new Map<string, string>(); // shopify id -> internal id
-
-      if (customers.length) {
-        const extIds = customers.map((c) => String(c.id));
-        const phones = customers
-          .map((c) => c.phone ?? c.default_address?.phone ?? null)
-          .filter((p): p is string => !!p);
-
-        // Pre-fetch existing customers by external_id and by phone in 2 queries
-        const { data: existingExt } = await supabaseAdmin
-          .from("customers")
-          .select("id, external_id")
-          .eq("store_id", storeId)
-          .eq("source", "shopify")
-          .in("external_id", extIds);
-        for (const r of existingExt ?? []) {
-          if (r.external_id) customerMap.set(r.external_id, r.id);
-        }
-
-        const phoneMap = new Map<string, string>();
-        if (phones.length) {
-          const { data: existingPhone } = await supabaseAdmin
-            .from("customers")
-            .select("id, phone")
-            .eq("store_id", storeId)
-            .in("phone", phones);
-          for (const r of existingPhone ?? []) {
-            if (r.phone) phoneMap.set(r.phone, r.id);
-          }
-        }
-
-        const toInsert: any[] = [];
-        for (const c of customers) {
-          const extId = String(c.id);
-          if (customerMap.has(extId)) continue;
-          const phone = c.phone ?? c.default_address?.phone ?? null;
-          if (phone && phoneMap.has(phone)) {
-            const id = phoneMap.get(phone)!;
-            customerMap.set(extId, id);
-            await supabaseAdmin
-              .from("customers")
-              .update({ source: "shopify", external_id: extId })
-              .eq("id", id);
-            continue;
-          }
-          const name =
-            `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() ||
-            c.email ||
-            phone ||
-            "Cliente Shopify";
-          toInsert.push({
-            store_id: storeId,
-            name,
-            phone,
-            source: "shopify",
-            external_id: extId,
-          });
-        }
-
-        for (const batch of chunk(toInsert, 200)) {
-          const { data: inserted, error } = await supabaseAdmin
-            .from("customers")
-            .insert(batch)
-            .select("id, external_id");
-          if (!error && inserted) {
-            for (const r of inserted) {
-              if (r.external_id) customerMap.set(r.external_id, r.id);
-            }
-            customersImported += inserted.length;
-          }
-        }
-      }
-
-      // ---------- ORDERS (batched) ----------
+      // ---------- ORDERS (fonte da verdade — clientes derivados daqui) ----------
       const orders = await fetchShopifyPaged(
-        `${base}/orders.json?status=any&limit=250&updated_at_min=${since}`,
+        `${base}/orders.json?status=any&limit=250&created_at_min=${since}`,
         token,
         "orders",
-        4,
+        20,
       );
 
+      const customerMap = new Map<string, string>(); // shopify customer id -> internal id
+
       if (orders.length) {
+        // ---------- CUSTOMERS a partir dos pedidos ----------
+        // Garante que nome + telefone do comprador real fiquem vinculados.
+        const buyersByExt = new Map<string, { name: string; phone: string | null }>();
+        for (const o of orders) {
+          const c = o.customer;
+          if (!c?.id) continue;
+          const extId = String(c.id);
+          if (buyersByExt.has(extId)) continue;
+          const phone =
+            c.phone ??
+            c.default_address?.phone ??
+            o.shipping_address?.phone ??
+            o.billing_address?.phone ??
+            o.phone ??
+            null;
+          const name =
+            `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() ||
+            `${o.shipping_address?.first_name ?? ""} ${o.shipping_address?.last_name ?? ""}`.trim() ||
+            c.email ||
+            o.email ||
+            phone ||
+            "Cliente Shopify";
+          buyersByExt.set(extId, { name, phone });
+        }
+
+        if (buyersByExt.size) {
+          const extIds = Array.from(buyersByExt.keys());
+          const phones = Array.from(buyersByExt.values())
+            .map((b) => b.phone)
+            .filter((p): p is string => !!p);
+
+          const { data: existingExt } = await supabaseAdmin
+            .from("customers")
+            .select("id, external_id")
+            .eq("store_id", storeId)
+            .eq("source", "shopify")
+            .in("external_id", extIds);
+          for (const r of existingExt ?? []) {
+            if (r.external_id) customerMap.set(r.external_id, r.id);
+          }
+
+          const phoneMap = new Map<string, string>();
+          if (phones.length) {
+            const { data: existingPhone } = await supabaseAdmin
+              .from("customers")
+              .select("id, phone, name")
+              .eq("store_id", storeId)
+              .in("phone", phones);
+            for (const r of existingPhone ?? []) {
+              if (r.phone) phoneMap.set(r.phone, r.id);
+            }
+          }
+
+          const toInsert: any[] = [];
+          for (const [extId, b] of buyersByExt) {
+            if (customerMap.has(extId)) {
+              // Atualiza nome/telefone se vierem agora preenchidos
+              const id = customerMap.get(extId)!;
+              await supabaseAdmin
+                .from("customers")
+                .update({ name: b.name, phone: b.phone })
+                .eq("id", id);
+              continue;
+            }
+            if (b.phone && phoneMap.has(b.phone)) {
+              const id = phoneMap.get(b.phone)!;
+              customerMap.set(extId, id);
+              await supabaseAdmin
+                .from("customers")
+                .update({ source: "shopify", external_id: extId, name: b.name })
+                .eq("id", id);
+              continue;
+            }
+            toInsert.push({
+              store_id: storeId,
+              name: b.name,
+              phone: b.phone,
+              source: "shopify",
+              external_id: extId,
+            });
+          }
+
+          for (const batch of chunk(toInsert, 200)) {
+            const { data: inserted, error } = await supabaseAdmin
+              .from("customers")
+              .insert(batch)
+              .select("id, external_id");
+            if (!error && inserted) {
+              for (const r of inserted) {
+                if (r.external_id) customerMap.set(r.external_id, r.id);
+              }
+              customersImported += inserted.length;
+            }
+          }
+        }
+
+        // ---------- ORDERS ----------
         const orderExtIds = orders.map((o) => String(o.id));
 
-        // Pre-fetch existing orders for this batch
         const { data: existingOrders } = await supabaseAdmin
           .from("orders")
           .select("id, external_id, status")
@@ -269,7 +286,6 @@ export const syncIntegration = createServerFn({ method: "POST" })
           if (r.external_id) existingMap.set(r.external_id, { id: r.id, status: r.status as any });
         }
 
-        // Pre-fetch existing imports (tracking)
         const { data: existingImps } = await supabaseAdmin
           .from("imports")
           .select("external_id")
@@ -278,42 +294,6 @@ export const syncIntegration = createServerFn({ method: "POST" })
           .in("external_id", orderExtIds);
         const existingImpSet = new Set((existingImps ?? []).map((r) => r.external_id));
 
-        // Resolve customers missing from map (single fetch by phone for unknown ones)
-        const ordersMissingCustomer = orders.filter(
-          (o) => o.customer?.id && !customerMap.has(String(o.customer.id)),
-        );
-        if (ordersMissingCustomer.length) {
-          const newCustomers = ordersMissingCustomer.map((o) => ({
-            store_id: storeId,
-            name:
-              `${o.customer?.first_name ?? ""} ${o.customer?.last_name ?? ""}`.trim() ||
-              o.email ||
-              o.customer?.phone ||
-              o.phone ||
-              "Cliente Shopify",
-            phone: o.customer?.phone ?? o.phone ?? null,
-            source: "shopify",
-            external_id: String(o.customer!.id),
-          }));
-          // Dedupe by external_id
-          const seen = new Set<string>();
-          const dedup = newCustomers.filter((c) => {
-            if (seen.has(c.external_id)) return false;
-            seen.add(c.external_id);
-            return true;
-          });
-          for (const batch of chunk(dedup, 200)) {
-            const { data: ins } = await supabaseAdmin
-              .from("customers")
-              .upsert(batch, { onConflict: "store_id,source,external_id", ignoreDuplicates: false })
-              .select("id, external_id");
-            for (const r of ins ?? []) {
-              if (r.external_id) customerMap.set(r.external_id, r.id);
-            }
-          }
-        }
-
-        // Build inserts + status updates
         const ordersToInsert: any[] = [];
         const statusUpdates: { id: string; status: string }[] = [];
         const importsToInsert: any[] = [];
@@ -342,18 +322,20 @@ export const syncIntegration = createServerFn({ method: "POST" })
             });
             itemsByExtOrderId[extId] = (o.line_items ?? []).map((li: any) => ({
               product_id: null,
-              product_name: li.title ?? "Produto Shopify",
-              size: mapSize(li.variant_title ?? li.title ?? null),
+              product_name: li.title ?? li.name ?? "Produto Shopify",
+              size: mapSize(li.variant_title ?? null),
               quantity: Number(li.quantity ?? 1),
               unit_price: Number(li.price ?? 0),
             }));
           }
 
+          // Rastreio: importa apenas o código; fornecedor fica em branco
+          // para o usuário preencher manualmente (dado da Shopify é incorreto).
           if (tracking && !existingImpSet.has(extId)) {
             importsToInsert.push({
               store_id: storeId,
               tracking_code: tracking,
-              supplier: `Shopify - ${integ.store_name ?? integ.store_url ?? ""}`.trim(),
+              supplier: null,
               status: "em_transito",
               source: "shopify",
               external_id: extId,
@@ -362,7 +344,6 @@ export const syncIntegration = createServerFn({ method: "POST" })
           }
         }
 
-        // Insert orders in batches and link items
         for (const batch of chunk(ordersToInsert, 100)) {
           const { data: ins, error } = await supabaseAdmin
             .from("orders")
@@ -382,14 +363,12 @@ export const syncIntegration = createServerFn({ method: "POST" })
           }
         }
 
-        // Status updates (small set, run sequentially in parallel)
         await Promise.all(
           statusUpdates.map((u) =>
             supabaseAdmin.from("orders").update({ status: u.status as any }).eq("id", u.id),
           ),
         );
 
-        // Imports
         for (const batch of chunk(importsToInsert, 200)) {
           const { data: ins, error } = await supabaseAdmin.from("imports").insert(batch).select("id");
           if (!error && ins) trackingsImported += ins.length;
