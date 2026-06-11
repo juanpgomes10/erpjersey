@@ -137,11 +137,14 @@ export type Database = {
       imports: {
         Row: {
           carrier: string | null
+          carrier_code: string | null
+          country: string | null
           created_at: string
           customs_fee: number | null
           expected_delivery: string | null
           id: string
           last_tracking_update: string | null
+          linked_order_ids: string[]
           notes: string | null
           order_numbers: number[]
           photos: string[]
@@ -151,15 +154,20 @@ export type Database = {
           total_value: number
           tracking_code: string | null
           tracking_events: Json
+          tracking_status_raw: string | null
           updated_at: string
+          value_usd: number
         }
         Insert: {
           carrier?: string | null
+          carrier_code?: string | null
+          country?: string | null
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
           id?: string
           last_tracking_update?: string | null
+          linked_order_ids?: string[]
           notes?: string | null
           order_numbers?: number[]
           photos?: string[]
@@ -169,15 +177,20 @@ export type Database = {
           total_value?: number
           tracking_code?: string | null
           tracking_events?: Json
+          tracking_status_raw?: string | null
           updated_at?: string
+          value_usd?: number
         }
         Update: {
           carrier?: string | null
+          carrier_code?: string | null
+          country?: string | null
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
           id?: string
           last_tracking_update?: string | null
+          linked_order_ids?: string[]
           notes?: string | null
           order_numbers?: number[]
           photos?: string[]
@@ -187,7 +200,9 @@ export type Database = {
           total_value?: number
           tracking_code?: string | null
           tracking_events?: Json
+          tracking_status_raw?: string | null
           updated_at?: string
+          value_usd?: number
         }
         Relationships: [
           {
