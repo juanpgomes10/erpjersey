@@ -774,24 +774,20 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
                   <Label className="mb-1.5 block">Tamanho*</Label>
                   <div className="flex flex-wrap gap-2">
                     {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                      const stock = selected.product_sizes?.find((s) => s.size === sz)?.quantity ?? 0;
-                      const out = stock === 0;
                       return (
                         <button
                           key={sz}
                           type="button"
                           onClick={() => setCfgSize(sz)}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"} ${out ? "opacity-60" : ""}`}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
                         >
-                          {sz} ({stock})
+                          {sz}
                         </button>
                       );
                     })}
                   </div>
-                  {cfgSize && (selected.product_sizes?.find((s) => s.size === cfgSize)?.quantity ?? 0) === 0 && (
-                    <p className="mt-1 text-xs text-[color:#D97706]">Sem estoque — pedido será reservado.</p>
-                  )}
                 </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Quantidade</Label>
