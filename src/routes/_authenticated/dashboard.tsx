@@ -111,6 +111,7 @@ function DashboardPage() {
     queryFn: async () => {
       const startIso = start.toISOString();
       const endIso = end.toISOString();
+      const now = new Date();
 
       const [salesRange, products, customers, orders, importsAll, lastSales] =
         await Promise.all([
