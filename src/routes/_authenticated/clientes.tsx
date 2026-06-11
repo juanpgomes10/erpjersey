@@ -79,11 +79,15 @@ type CustomerAgg = Customer & {
 function ClientesPage() {
   const { data: profile } = useProfile();
   const storeId = profile?.store?.id;
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"top" | "recent" | "name" | "orders">("top");
   const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [teamOpen, setTeamOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openNew, setOpenNew] = useState(false);
+
 
   const { data: customers, isLoading: lc } = useQuery({
     queryKey: ["customers", storeId],
