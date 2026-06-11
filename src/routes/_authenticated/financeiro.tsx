@@ -74,6 +74,8 @@ type Transaction = {
   recurring: boolean;
   notes: string | null;
   created_at: string;
+  source?: string | null;
+  external_id?: string | null;
 };
 
 const CATEGORY_LABEL: Record<TxCategory, string> = {
@@ -564,6 +566,11 @@ function TxTable({
                   {t.recurring && (
                     <span className="rounded bg-[color:#7C3AED15] px-1.5 py-0.5 text-[10px] font-medium text-[color:#7C3AED]">
                       <Repeat className="mr-0.5 inline h-2.5 w-2.5" /> Fixa
+                    </span>
+                  )}
+                  {t.source === "shopify" && (
+                    <span className="rounded bg-[color:#16A34A15] px-1.5 py-0.5 text-[10px] font-medium text-[color:#16A34A]">
+                      Shopify
                     </span>
                   )}
                   <span className="truncate text-sm font-medium">{t.description}</span>

@@ -859,11 +859,13 @@ export type Database = {
           created_at: string
           description: string
           due_date: string | null
+          external_id: string | null
           id: string
           notes: string | null
           paid: boolean
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           recurring: boolean
+          source: string | null
           store_id: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -874,11 +876,13 @@ export type Database = {
           created_at?: string
           description: string
           due_date?: string | null
+          external_id?: string | null
           id?: string
           notes?: string | null
           paid?: boolean
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           recurring?: boolean
+          source?: string | null
           store_id: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -889,11 +893,13 @@ export type Database = {
           created_at?: string
           description?: string
           due_date?: string | null
+          external_id?: string | null
           id?: string
           notes?: string | null
           paid?: boolean
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           recurring?: boolean
+          source?: string | null
           store_id?: string
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
