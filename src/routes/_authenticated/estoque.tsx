@@ -80,7 +80,7 @@ type ProductRow = {
   cost_price: number;
   sale_price: number;
   image_url: string | null;
-  min_stock: number;
+  min_stock?: number;
   notes: string | null;
   created_at: string;
   product_sizes: Array<{ size: Size; quantity: number }>;
