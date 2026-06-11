@@ -117,7 +117,7 @@ export const Route = createFileRoute("/_authenticated/pedidos")({
 function PedidosPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<OrderStatus | "todos">("todos");
-  const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes">("todos");
+  const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "12meses">("todos");
   const [openNew, setOpenNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -158,7 +158,14 @@ function PedidosPage() {
       d.setHours(0, 0, 0, 0);
       return d;
     }
-    d.setDate(1);
+    if (kind === "mes") {
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    const monthsMap = { "3meses": 3, "6meses": 6, "12meses": 12 } as const;
+    const months = monthsMap[kind as keyof typeof monthsMap];
+    d.setMonth(d.getMonth() - months);
     d.setHours(0, 0, 0, 0);
     return d;
   };
@@ -233,6 +240,9 @@ function PedidosPage() {
                 <SelectItem value="hoje">Hoje</SelectItem>
                 <SelectItem value="semana">Esta semana</SelectItem>
                 <SelectItem value="mes">Este mês</SelectItem>
+                <SelectItem value="3meses">Últimos 3 meses</SelectItem>
+                <SelectItem value="6meses">Últimos 6 meses</SelectItem>
+                <SelectItem value="12meses">Últimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
           </div>
