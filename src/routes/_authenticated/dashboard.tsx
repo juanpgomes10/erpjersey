@@ -112,7 +112,7 @@ function DashboardPage() {
       const startIso = start.toISOString();
       const endIso = end.toISOString();
 
-      const [salesRange, products, customers, orders, imports, lastSales] =
+      const [salesRange, products, customers, orders, importsAll, lastSales] =
         await Promise.all([
           supabase
             .from("sales")
@@ -132,8 +132,7 @@ function DashboardPage() {
             .eq("status", "pendente"),
           supabase
             .from("imports")
-            .select("id", { count: "exact", head: true })
-            .not("status", "in", "(entregue,cancelado)"),
+            .select("id, status, supplier, country, total_value, customs_fee, created_at, updated_at"),
           supabase
             .from("sales")
             .select(
