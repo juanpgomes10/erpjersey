@@ -307,7 +307,7 @@ function ImportacoesPage() {
         />
         <KpiCard
           icon={DollarSign}
-          label="Aguardando taxa"
+          label="Aguardando tributos"
           value={kpis.taxa}
           hint={kpis.taxaTotal > 0 ? fmtBRL(kpis.taxaTotal) : undefined}
         />
