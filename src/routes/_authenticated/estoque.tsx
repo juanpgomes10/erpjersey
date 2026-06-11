@@ -297,9 +297,8 @@ function EstoquePage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((p) => {
-                const totalQty = p.product_sizes.reduce((s, x) => s + x.quantity, 0);
-                const isLow = totalQty <= p.min_stock;
                 return (
+
                   <div key={p.id} className="group rounded-lg border border-border bg-[color:var(--card)] p-4 transition-colors hover:border-[color:#2563EB]">
                     <div className="flex items-start gap-3">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-[color:#1E293B] overflow-hidden">
