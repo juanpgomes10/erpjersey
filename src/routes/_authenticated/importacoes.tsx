@@ -1169,3 +1169,111 @@ function NewImportDialog({
     </Dialog>
   );
 }
+
+function DeliveryTimeCharts({
+  avgDays,
+  sampleSize,
+  byMonth,
+  histogram,
+  rangeLabel,
+}: {
+  avgDays: number;
+  sampleSize: number;
+  byMonth: Array<{ label: string; days: number; count: number }>;
+  histogram: Array<{ idx: number; dias: number }>;
+  rangeLabel: string;
+}) {
+  if (sampleSize === 0) {
+    return (
+      <Card className="border-border/60">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">
+            Tempo médio de entrega — {rangeLabel}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-6 text-center text-xs text-muted-foreground">
+          Nenhuma importação entregue neste período ainda. Quando houver entregas, você verá aqui
+          a média de dias por mês de compra.
+        </CardContent>
+      </Card>
+    );
+  }
+  return (
+    <Card className="border-border/60">
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <CardTitle className="text-sm font-medium">
+            Tempo médio de entrega — {rangeLabel}
+          </CardTitle>
+          <div className="flex items-baseline gap-1">
+            <span className="font-sora text-2xl font-semibold text-[#2563EB] tabular">
+              {avgDays}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              dias · {sampleSize} entrega{sampleSize > 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {byMonth.length > 1 ? (
+          <div className="h-48 w-full">
+            <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              Por mês de compra
+            </p>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={byMonth} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid stroke="#1E293B" vertical={false} />
+                <XAxis dataKey="label" stroke="#64748B" fontSize={11} />
+                <YAxis stroke="#64748B" fontSize={11} tickFormatter={(v) => `${v}d`} />
+                <RTooltip
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #1E293B",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  formatter={(v: number, _n, p) => [
+                    `${v} dias`,
+                    `Média (${p.payload.count} entrega${p.payload.count > 1 ? "s" : ""})`,
+                  ]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="days"
+                  stroke="#2563EB"
+                  strokeWidth={2}
+                  dot={{ fill: "#2563EB", r: 4 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : null}
+        <div className="h-40 w-full">
+          <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+            Dias por importação (ordenado)
+          </p>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={histogram} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <CartesianGrid stroke="#1E293B" vertical={false} />
+              <XAxis dataKey="idx" stroke="#64748B" fontSize={11} />
+              <YAxis stroke="#64748B" fontSize={11} tickFormatter={(v) => `${v}d`} />
+              <RTooltip
+                contentStyle={{
+                  backgroundColor: "#111827",
+                  border: "1px solid #1E293B",
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                formatter={(v: number) => [`${v} dias`, "Tempo"]}
+                labelFormatter={(l) => `Importação #${l}`}
+              />
+              <Bar dataKey="dias" fill="#2563EB" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
