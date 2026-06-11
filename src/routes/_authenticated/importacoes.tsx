@@ -145,15 +145,41 @@ function timeAgo(iso: string | null): string {
   return `há ${d}d`;
 }
 
+type DateRangeKey = "todos" | "hoje" | "ultimos_7" | "ultimos_30" | "mes_atual" | "ultimos_3_meses" | "ano_atual";
+const DATE_RANGE_LABELS: Record<DateRangeKey, string> = {
+  todos: "Todo período",
+  hoje: "Hoje",
+  ultimos_7: "Últimos 7 dias",
+  ultimos_30: "Últimos 30 dias",
+  mes_atual: "Mês atual",
+  ultimos_3_meses: "Últimos 3 meses",
+  ano_atual: "Ano atual",
+};
+function getDateRange(k: DateRangeKey): { start: Date | null; end: Date | null } {
+  const now = new Date();
+  const sToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eToday = new Date(sToday); eToday.setDate(eToday.getDate() + 1);
+  switch (k) {
+    case "todos": return { start: null, end: null };
+    case "hoje": return { start: sToday, end: eToday };
+    case "ultimos_7": { const s = new Date(sToday); s.setDate(s.getDate() - 6); return { start: s, end: eToday }; }
+    case "ultimos_30": { const s = new Date(sToday); s.setDate(s.getDate() - 29); return { start: s, end: eToday }; }
+    case "mes_atual": return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+    case "ultimos_3_meses": return { start: new Date(now.getFullYear(), now.getMonth() - 2, 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+    case "ano_atual": return { start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear() + 1, 0, 1) };
+  }
+}
+
 function ImportacoesPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState("andamento");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("todos");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [lastBulkRefresh, setLastBulkRefresh] = useState<string | null>(null);
 
-  const { data: imports = [], isLoading } = useQuery({
+  const { data: allImports = [], isLoading } = useQuery({
     queryKey: ["imports"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -164,6 +190,17 @@ function ImportacoesPage() {
       return (data ?? []) as unknown as ImportRow[];
     },
   });
+
+  // Aplica filtro de data primeiro
+  const imports = useMemo(() => {
+    const { start, end } = getDateRange(dateRange);
+    if (!start || !end) return allImports;
+    const s = start.getTime(), e = end.getTime();
+    return allImports.filter((i) => {
+      const t = new Date(i.created_at).getTime();
+      return t >= s && t < e;
+    });
+  }, [allImports, dateRange]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
