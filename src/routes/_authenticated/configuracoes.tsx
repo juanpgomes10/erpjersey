@@ -906,3 +906,470 @@ function SkeletonCard() {
     </Card>
   );
 }
+
+/* ---------------- EXPORTAR DADOS ---------------- */
+
+const PERIOD_OPTIONS: { value: ExportPeriod; label: string }[] = [
+  { value: "today", label: "Hoje" },
+  { value: "week", label: "Esta semana" },
+  { value: "month", label: "Este mês" },
+  { value: "year", label: "Este ano" },
+  { value: "custom", label: "Personalizado" },
+];
+
+function PeriodPicker({
+  period, onPeriod, from, to, onFrom, onTo,
+}: {
+  period: ExportPeriod; onPeriod: (v: ExportPeriod) => void;
+  from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs uppercase text-muted-foreground">Período</Label>
+      <Select value={period} onValueChange={(v) => onPeriod(v as ExportPeriod)}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {period === "custom" && (
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Input type="date" value={from} onChange={(e) => onFrom(e.target.value)} />
+          <Input type="date" value={to} onChange={(e) => onTo(e.target.value)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExportCard({
+  title, description, columns, children, onExport,
+}: {
+  title: string; description: string; columns: string[];
+  children?: React.ReactNode; onExport: () => Promise<void>;
+}) {
+  const [loading, setLoading] = useState(false);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-sora text-base">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {children}
+        <div className="rounded-md border border-[color:#1E293B] bg-[color:#0F172A] p-3">
+          <div className="mb-1 text-[11px] uppercase text-muted-foreground">Colunas exportadas</div>
+          <div className="text-xs text-foreground/80">{columns.join(" · ")}</div>
+        </div>
+        <Button
+          className="w-full"
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true);
+            try {
+              await onExport();
+              toast.success("Download iniciado");
+            } catch (e: any) {
+              toast.error(e?.message ?? "Erro ao exportar");
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Exportar Excel
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function useExportPeriod(initial: ExportPeriod = "month") {
+  const [period, setPeriod] = useState<ExportPeriod>(initial);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const range = () => periodToRange(period, { from, to });
+  return { period, setPeriod, from, setFrom, to, setTo, range };
+}
+
+function ExportarTab() {
+  const sales = useExportPeriod();
+  const orders = useExportPeriod();
+  const [orderStatus, setOrderStatus] = useState("all");
+  const imp = useExportPeriod();
+  const fin = useExportPeriod();
+  const [allLoading, setAllLoading] = useState(false);
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-4 sm:flex-row sm:items-center">
+          <div>
+            <div className="font-sora text-sm font-semibold">Exportar tudo</div>
+            <div className="text-xs text-muted-foreground">
+              Gera um único Excel com uma aba por módulo (período: este mês).
+            </div>
+          </div>
+          <Button
+            disabled={allLoading}
+            onClick={async () => {
+              setAllLoading(true);
+              try {
+                const r = periodToRange("month");
+                const [s, o, c, i, f] = await Promise.all([
+                  fetchSalesRows(r),
+                  fetchOrdersRows(r),
+                  fetchCustomersRows(),
+                  fetchImportsRows(r),
+                  fetchFinanceRows(r),
+                ]);
+                downloadXlsx(`erpjersey-completo-${todayStr()}.xlsx`, {
+                  Vendas: s, Pedidos: o, Clientes: c, Importações: i, Financeiro: f,
+                });
+                toast.success("Download iniciado");
+              } catch (e: any) {
+                toast.error(e?.message ?? "Erro ao exportar");
+              } finally {
+                setAllLoading(false);
+              }
+            }}
+          >
+            {allLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Exportar tudo
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <ExportCard
+          title="Vendas"
+          description="Histórico completo de vendas com cliente, produtos, valores e formas de pagamento"
+          columns={["Data","Nº Venda","Cliente","Produtos","Quantidade","Valor unitário","Valor total","Lucro","Forma de pagamento","Status"]}
+          onExport={async () => {
+            const rows = await fetchSalesRows(sales.range());
+            downloadXlsx(`erpjersey-vendas-${todayStr()}.xlsx`, { Vendas: rows });
+          }}
+        >
+          <PeriodPicker period={sales.period} onPeriod={sales.setPeriod} from={sales.from} to={sales.to} onFrom={sales.setFrom} onTo={sales.setTo} />
+        </ExportCard>
+
+        <ExportCard
+          title="Pedidos"
+          description="Lista de pedidos com status, cliente e valores"
+          columns={["Data","Nº Pedido","Cliente","Produtos","Valor total","Forma de pagamento","Status"]}
+          onExport={async () => {
+            const rows = await fetchOrdersRows(orders.range(), orderStatus);
+            downloadXlsx(`erpjersey-pedidos-${todayStr()}.xlsx`, { Pedidos: rows });
+          }}
+        >
+          <PeriodPicker period={orders.period} onPeriod={orders.setPeriod} from={orders.from} to={orders.to} onFrom={orders.setFrom} onTo={orders.setTo} />
+          <div className="space-y-2">
+            <Label className="text-xs uppercase text-muted-foreground">Status</Label>
+            <Select value={orderStatus} onValueChange={setOrderStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="pago">Pago</SelectItem>
+                <SelectItem value="enviado">Enviado</SelectItem>
+                <SelectItem value="entregue">Entregue</SelectItem>
+                <SelectItem value="cancelado">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </ExportCard>
+
+        <ExportCard
+          title="Clientes"
+          description="Base completa de clientes com histórico de compras"
+          columns={["Nome","WhatsApp","Instagram","Cidade","Total de compras","Valor total gasto","Última compra","Data de cadastro"]}
+          onExport={async () => {
+            const rows = await fetchCustomersRows();
+            downloadXlsx(`erpjersey-clientes-${todayStr()}.xlsx`, { Clientes: rows });
+          }}
+        />
+
+        <ExportCard
+          title="Importações"
+          description="Histórico de importações com status e valores"
+          columns={["Código de rastreio","Fornecedor","País","Transportadora","Status","Previsão de entrega","Valor USD","Valor R$","Taxa alfandegária","Data de cadastro"]}
+          onExport={async () => {
+            const rows = await fetchImportsRows(imp.range());
+            downloadXlsx(`erpjersey-importacoes-${todayStr()}.xlsx`, { Importações: rows });
+          }}
+        >
+          <PeriodPicker period={imp.period} onPeriod={imp.setPeriod} from={imp.from} to={imp.to} onFrom={imp.setFrom} onTo={imp.setTo} />
+        </ExportCard>
+
+        <ExportCard
+          title="Financeiro"
+          description="Lançamentos financeiros com entradas, saídas e saldo"
+          columns={["Data","Tipo","Descrição","Categoria","Valor","Forma de pagamento","Observações"]}
+          onExport={async () => {
+            const rows = await fetchFinanceRows(fin.range());
+            downloadXlsx(`erpjersey-financeiro-${todayStr()}.xlsx`, { Financeiro: rows });
+          }}
+        >
+          <PeriodPicker period={fin.period} onPeriod={fin.setPeriod} from={fin.from} to={fin.to} onFrom={fin.setFrom} onTo={fin.setTo} />
+        </ExportCard>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- INTEGRAÇÕES ---------------- */
+
+function IntegracoesTab() {
+  const qc = useQueryClient();
+  const list = useServerFn(listIntegrations);
+  const { data, isLoading } = useQuery({
+    queryKey: ["integrations"],
+    queryFn: () => list(),
+  });
+  const refetch = () => qc.invalidateQueries({ queryKey: ["integrations"] });
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </div>
+    );
+  }
+  const shopify = data?.find((i: any) => i.platform === "shopify");
+  const nuvem = data?.find((i: any) => i.platform === "nuvemshop");
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <IntegrationCard
+        platform="shopify"
+        name="Shopify"
+        description="Importe pedidos da sua loja Shopify automaticamente para o ERPJersey"
+        integration={shopify}
+        onChange={refetch}
+      />
+      <IntegrationCard
+        platform="nuvemshop"
+        name="Nuvemshop"
+        description="Importe pedidos da sua loja Nuvemshop para o ERPJersey"
+        integration={nuvem}
+        onChange={refetch}
+      />
+      <Card className="opacity-70">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-sora text-base">WhatsApp Business API</CardTitle>
+            <Badge variant="outline" className="border-[color:#1E293B] text-[10px]">Em breve</Badge>
+          </div>
+          <CardDescription>Envie notificações automáticas para clientes via WhatsApp</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button disabled className="w-full" title="Disponível em breve">Conectar</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function timeAgo(iso?: string | null) {
+  if (!iso) return "Nunca";
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins} min`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  return `há ${d}d`;
+}
+
+function IntegrationCard({
+  platform, name, description, integration, onChange,
+}: {
+  platform: "shopify" | "nuvemshop";
+  name: string;
+  description: string;
+  integration?: any;
+  onChange: () => void;
+}) {
+  const connect = useServerFn(connectIntegration);
+  const disconnect = useServerFn(disconnectIntegration);
+  const sync = useServerFn(syncIntegration);
+  const [storeUrl, setStoreUrl] = useState("");
+  const [storeId, setStoreId] = useState("");
+  const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const connected = !!integration;
+
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      const res: any = await connect({
+        data: { platform, token, storeUrl: storeUrl || undefined, storeId: storeId || undefined },
+      });
+      toast.success(`${name} conectado${res?.storeName ? `: ${res.storeName}` : ""}`);
+      setToken(""); setStoreUrl(""); setStoreId("");
+      onChange();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Credenciais inválidas. Verifique a URL e o token.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res: any = await sync({ data: { platform } });
+      toast.success(`Sincronizado: ${res?.imported ?? 0} pedido(s) importado(s)`);
+      onChange();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="font-sora text-base">{name}</CardTitle>
+          {connected ? (
+            <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Conectado
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-[color:#1E293B] text-[10px]">Disponível</Badge>
+          )}
+        </div>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {connected ? (
+          <>
+            <div className="rounded-md border border-[color:#1E293B] bg-[color:#0F172A] p-3 text-sm">
+              <div className="font-medium">{integration.store_name ?? integration.store_url ?? integration.external_store_id}</div>
+              <div className="text-xs text-muted-foreground">
+                Última sincronização: {timeAgo(integration.last_synced_at)}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button className="flex-1" disabled={syncing} onClick={handleSync}>
+                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Sincronizar agora
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
+                    Desconectar
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Desconectar {name}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Os pedidos já importados continuam no ERPJersey, mas novas sincronizações serão interrompidas.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={async () => {
+                        try {
+                          await disconnect({ data: { platform } });
+                          toast.success(`${name} desconectado`);
+                          onChange();
+                        } catch (e: any) {
+                          toast.error(e?.message ?? "Erro");
+                        }
+                      }}
+                    >
+                      Desconectar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </>
+        ) : (
+          <>
+            {platform === "shopify" ? (
+              <div className="space-y-2">
+                <Label>URL da loja</Label>
+                <Input placeholder="minhaloja.myshopify.com" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>ID da loja</Label>
+                <Input placeholder="1234567" value={storeId} onChange={(e) => setStoreId(e.target.value)} />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Access Token</Label>
+              <div className="relative">
+                <Input
+                  type={showToken ? "text" : "password"}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowToken((s) => !s)}
+                >
+                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHelp(true)}
+                className="inline-flex items-center gap-1 text-xs text-[color:#2563EB] hover:underline"
+              >
+                <HelpCircle className="h-3 w-3" /> Como obter o Access Token?
+              </button>
+            </div>
+            <Button className="w-full" disabled={loading || !token} onClick={handleConnect}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+              Conectar {name}
+            </Button>
+          </>
+        )}
+
+        <Dialog open={help} onOpenChange={setHelp}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Como obter o Access Token do {name}</DialogTitle>
+              <DialogDescription>Siga o passo a passo abaixo.</DialogDescription>
+            </DialogHeader>
+            {platform === "shopify" ? (
+              <ol className="list-decimal space-y-2 pl-5 text-sm">
+                <li>Acesse o painel da Shopify.</li>
+                <li>Vá em <strong>Configurações → Aplicativos e canais de vendas</strong>.</li>
+                <li>Clique em <strong>Desenvolver aplicativos</strong>.</li>
+                <li>
+                  Crie um novo app e ative as permissões:{" "}
+                  <code className="rounded bg-[color:#1E293B] px-1">read_orders</code>,{" "}
+                  <code className="rounded bg-[color:#1E293B] px-1">read_customers</code>,{" "}
+                  <code className="rounded bg-[color:#1E293B] px-1">read_products</code>.
+                </li>
+                <li>Copie o <strong>Admin API Access Token</strong> gerado.</li>
+              </ol>
+            ) : (
+              <ol className="list-decimal space-y-2 pl-5 text-sm">
+                <li>Acesse o painel da Nuvemshop.</li>
+                <li>Vá em <strong>Configurações → Aplicativos</strong>.</li>
+                <li>Clique em <strong>Criar aplicativo parceiro</strong> ou use um app existente.</li>
+                <li>Copie o <strong>User ID</strong> (ID da loja) e o <strong>Access Token</strong> gerado.</li>
+              </ol>
+            )}
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
+  );
+}
