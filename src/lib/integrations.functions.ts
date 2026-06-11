@@ -427,5 +427,7 @@ export const syncIntegration = createServerFn({ method: "POST" })
       ordersImported,
       customersImported,
       trackingsImported,
+      nextCursor,
+      hasMore: !!nextCursor,
     };
   });
