@@ -30,7 +30,7 @@ export const refreshTracking = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: imp, error } = await supabase
       .from("imports")
-      .select("id, tracking_code, carrier")
+      .select("id, store_id, tracking_code, carrier, status")
       .eq("id", data.importId)
       .maybeSingle();
 
@@ -89,6 +89,7 @@ export const refreshTracking = createServerFn({ method: "POST" })
     if (status === "Delivered") mapped = "entregue";
     else if (status === "OutForDelivery") mapped = "saiu_entrega";
     else if (sub.includes("customs") || sub.includes("alfand")) mapped = "barrado_alfandega";
+    else if (sub.includes("arrival") || sub.includes("import_") || sub.includes("br_")) mapped = "chegou_brasil";
     else if (status === "InTransit") mapped = "em_transito";
     else if (status === "InfoReceived") mapped = "enviado";
     if (sub.includes("pickup") || sub.includes("retir")) mapped = "aguardando_taxa";
@@ -105,5 +106,31 @@ export const refreshTracking = createServerFn({ method: "POST" })
       .eq("id", data.importId);
     if (upErr) throw new Error(upErr.message);
 
+    // Notifica o usuário se houve mudança de status
+    if (mapped && mapped !== imp.status && imp.store_id) {
+      const meta = STATUS_NOTIFICATION[mapped];
+      if (meta) {
+        await supabase.from("notifications").insert({
+          store_id: imp.store_id,
+          type: meta.type,
+          title: meta.title,
+          body: `Rastreio ${imp.tracking_code}${imp.carrier ? ` • ${imp.carrier}` : ""}`,
+          link: "/importacoes",
+          related_import_id: imp.id,
+        } as never);
+      }
+    }
+
     return { events, status: mapped ?? status };
   });
+
+const STATUS_NOTIFICATION: Record<string, { title: string; type: "info" | "urgent" }> = {
+  enviado: { title: "📦 Importação enviada pelo fornecedor", type: "info" },
+  em_transito: { title: "🚚 Pedido em trânsito", type: "info" },
+  chegou_brasil: { title: "📦 Pedido recebido no Brasil", type: "info" },
+  aguardando_taxa: { title: "💰 Aguardando pagamento de tributos", type: "urgent" },
+  barrado_alfandega: { title: "⚠️ Pedido barrado na alfândega", type: "urgent" },
+  saiu_entrega: { title: "🚚 Saiu para entrega", type: "info" },
+  entregue: { title: "✅ Pedido entregue", type: "info" },
+};
+
