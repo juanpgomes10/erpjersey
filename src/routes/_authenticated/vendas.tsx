@@ -731,7 +731,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
                     <div className="col-span-5 min-w-0">
                       <p className="text-sm font-medium truncate">{c.productName}</p>
-                      <p className="text-xs text-muted-foreground">Tamanho {c.size}{source === "estoque" && c.stockBySize[c.size] !== undefined ? ` · ${c.stockBySize[c.size]} em estoque` : ""}</p>
+                      <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
                     </div>
                     <div className="col-span-1">
                       <Input
