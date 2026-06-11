@@ -23,6 +23,8 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, paymentMethodLabel } from "@/lib/format";
