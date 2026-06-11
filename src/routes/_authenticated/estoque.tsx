@@ -429,7 +429,7 @@ function ProductDialog({
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
         image_url: imageUrl.trim() || null,
-        min_stock: Number(minStock) || 0,
+
       };
 
       let productId: string;
