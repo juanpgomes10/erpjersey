@@ -240,6 +240,9 @@ function PedidosPage() {
                 <SelectItem value="hoje">Hoje</SelectItem>
                 <SelectItem value="semana">Esta semana</SelectItem>
                 <SelectItem value="mes">Este mês</SelectItem>
+                <SelectItem value="3meses">Últimos 3 meses</SelectItem>
+                <SelectItem value="6meses">Últimos 6 meses</SelectItem>
+                <SelectItem value="12meses">Últimos 12 meses</SelectItem>
               </SelectContent>
             </Select>
           </div>
