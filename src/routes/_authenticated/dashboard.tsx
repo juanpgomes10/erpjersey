@@ -23,6 +23,8 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, paymentMethodLabel } from "@/lib/format";
@@ -109,8 +111,9 @@ function DashboardPage() {
     queryFn: async () => {
       const startIso = start.toISOString();
       const endIso = end.toISOString();
+      const now = new Date();
 
-      const [salesRange, products, customers, orders, imports, lastSales] =
+      const [salesRange, products, customers, orders, importsAll, lastSales] =
         await Promise.all([
           supabase
             .from("sales")
@@ -130,8 +133,7 @@ function DashboardPage() {
             .eq("status", "pendente"),
           supabase
             .from("imports")
-            .select("id", { count: "exact", head: true })
-            .not("status", "in", "(entregue,cancelado)"),
+            .select("id, status, supplier, country, total_value, customs_fee, created_at, updated_at"),
           supabase
             .from("sales")
             .select(
@@ -217,13 +219,109 @@ function DashboardPage() {
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
 
+      // ===== Importações =====
+      const importsList = importsAll.data ?? [];
+      const ACTIVE_STATUSES = ["comprado", "enviado", "em_transito", "chegou_brasil", "aguardando_taxa", "saiu_entrega"];
+      const importacoesAndamento = importsList.filter((i) => ACTIVE_STATUSES.includes(i.status)).length;
+      const importsInRange = importsList.filter((i) => {
+        const t = new Date(i.created_at).getTime();
+        return t >= start.getTime() && t < end.getTime();
+      });
+      const deliveredInRange = importsInRange.filter((i) => i.status === "entregue");
+      // tempo médio de entrega: created_at → updated_at (atualizado quando vira "entregue")
+      const avgDeliveryDays = deliveredInRange.length
+        ? Math.round(
+            deliveredInRange.reduce(
+              (s, i) => s + (new Date(i.updated_at).getTime() - new Date(i.created_at).getTime()),
+              0,
+            ) / deliveredInRange.length / 86400000,
+          )
+        : 0;
+      const importsGastoBRL = importsInRange.reduce((s, i) => s + Number(i.total_value ?? 0), 0);
+      const tributosPendentes = importsList
+        .filter((i) => i.status === "aguardando_taxa")
+        .reduce((s, i) => s + Number(i.customs_fee ?? 0), 0);
+      // Distribuição por status
+      const STATUS_LABEL: Record<string, string> = {
+        comprado: "Comprado",
+        enviado: "Enviado",
+        em_transito: "Em trânsito",
+        chegou_brasil: "Chegou ao BR",
+        aguardando_taxa: "Aguard. tributos",
+        barrado_alfandega: "Barrado",
+        saiu_entrega: "Saiu p/ entrega",
+        entregue: "Entregue",
+        cancelado: "Cancelado",
+      };
+      const statusMap = new Map<string, number>();
+      importsList.forEach((i) => statusMap.set(i.status, (statusMap.get(i.status) ?? 0) + 1));
+      const importsByStatus = Array.from(statusMap, ([k, v]) => ({ name: STATUS_LABEL[k] ?? k, value: v, key: k }));
+      // Importações por mês (últimos 6 meses)
+      const importsMonthly: { label: string; novas: number; entregues: number; gasto: number }[] = [];
+      for (let m = 5; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const monthList = importsList.filter((i) => {
+          const t = new Date(i.created_at).getTime();
+          return t >= d.getTime() && t < next.getTime();
+        });
+        importsMonthly.push({
+          label: d.toLocaleDateString("pt-BR", { month: "short" }),
+          novas: monthList.length,
+          entregues: monthList.filter((i) => i.status === "entregue").length,
+          gasto: monthList.reduce((s, i) => s + Number(i.total_value ?? 0), 0),
+        });
+      }
+      // Tempo de entrega por mês (entregas concluídas naquele mês via updated_at)
+      const deliveryTimeMonthly: { label: string; days: number }[] = [];
+      for (let m = 5; m >= 0; m--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const delivered = importsList.filter((i) => {
+          const t = new Date(i.updated_at).getTime();
+          return i.status === "entregue" && t >= d.getTime() && t < next.getTime();
+        });
+        const avg = delivered.length
+          ? Math.round(
+              delivered.reduce(
+                (s, i) => s + (new Date(i.updated_at).getTime() - new Date(i.created_at).getTime()),
+                0,
+              ) / delivered.length / 86400000,
+            )
+          : 0;
+        deliveryTimeMonthly.push({
+          label: d.toLocaleDateString("pt-BR", { month: "short" }),
+          days: avg,
+        });
+      }
+      // Top fornecedores no período
+      const supplierMap = new Map<string, { count: number; total: number }>();
+      importsInRange.forEach((i) => {
+        const k = i.supplier ?? "—";
+        const c = supplierMap.get(k) ?? { count: 0, total: 0 };
+        c.count += 1;
+        c.total += Number(i.total_value ?? 0);
+        supplierMap.set(k, c);
+      });
+      const topSuppliers = Array.from(supplierMap, ([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
       return {
         faturamento,
         lucro,
         vendas: sales.length,
         pedidosPendentes: orders.count ?? 0,
         clientes: customers.count ?? 0,
-        importacoesAndamento: imports.count ?? 0,
+        importacoesAndamento,
+        avgDeliveryDays,
+        importsGastoBRL,
+        tributosPendentes,
+        importsByStatus,
+        importsMonthly,
+        deliveryTimeMonthly,
+        topSuppliers,
+        deliveredCount: deliveredInRange.length,
         estoqueBaixo: lowStock.length,
         chartDays,
         chartMethods,
@@ -452,6 +550,172 @@ function DashboardPage() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Importações */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Plane className="h-5 w-5 text-[#2563EB]" />
+          <h2 className="font-sora text-lg font-semibold">Importações</h2>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Kpi
+            label="TEMPO MÉDIO DE ENTREGA"
+            value={data?.avgDeliveryDays ? `${data.avgDeliveryDays} dias` : "—"}
+            loading={isLoading}
+            icon={Plane}
+          />
+          <Kpi
+            label="ENTREGUES NO PERÍODO"
+            value={String(data?.deliveredCount ?? 0)}
+            loading={isLoading}
+            icon={Package}
+          />
+          <Kpi
+            label="GASTO COM IMPORTAÇÕES"
+            value={fmtBRL(data?.importsGastoBRL)}
+            loading={isLoading}
+            icon={DollarSign}
+          />
+          <Kpi
+            label="TRIBUTOS PENDENTES"
+            value={fmtBRL(data?.tributosPendentes)}
+            loading={isLoading}
+            icon={AlertTriangle}
+            variant="warning"
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Tempo médio de entrega (últimos 6 meses)</CardTitle>
+            </CardHeader>
+            <CardContent className="h-72">
+              {isLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : (data?.deliveryTimeMonthly?.every((d) => d.days === 0) ?? true) ? (
+                <EmptyChart label="Sem entregas concluídas ainda" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data?.deliveryTimeMonthly ?? []}>
+                    <CartesianGrid stroke="#1E293B" vertical={false} />
+                    <XAxis dataKey="label" stroke="#64748B" fontSize={12} />
+                    <YAxis stroke="#64748B" fontSize={12} tickFormatter={(v) => `${v}d`} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #1E293B", borderRadius: 8 }}
+                      formatter={(v: number) => `${v} dias`}
+                    />
+                    <Line type="monotone" dataKey="days" stroke="#2563EB" strokeWidth={2} dot={{ fill: "#2563EB", r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Distribuição por status</CardTitle>
+            </CardHeader>
+            <CardContent className="h-72">
+              {isLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : (data?.importsByStatus?.length ?? 0) === 0 ? (
+                <EmptyChart label="Sem importações" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data!.importsByStatus}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={2}
+                    >
+                      {data!.importsByStatus.map((s, i) => {
+                        const colors: Record<string, string> = {
+                          comprado: "#94A3B8",
+                          enviado: "#60A5FA",
+                          em_transito: "#3B82F6",
+                          chegou_brasil: "#A855F7",
+                          aguardando_taxa: "#F59E0B",
+                          barrado_alfandega: "#EF4444",
+                          saiu_entrega: "#06B6D4",
+                          entregue: "#22C55E",
+                          cancelado: "#64748B",
+                        };
+                        return <Cell key={i} fill={colors[s.key] ?? "#2563EB"} />;
+                      })}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #1E293B", borderRadius: 8 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-base">Importações por mês (novas vs entregues)</CardTitle>
+            </CardHeader>
+            <CardContent className="h-72">
+              {isLoading ? (
+                <Skeleton className="h-full w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data?.importsMonthly ?? []}>
+                    <CartesianGrid stroke="#1E293B" vertical={false} />
+                    <XAxis dataKey="label" stroke="#64748B" fontSize={12} />
+                    <YAxis stroke="#64748B" fontSize={12} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#111827", border: "1px solid #1E293B", borderRadius: 8 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="novas" name="Novas" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="entregues" name="Entregues" fill="#22C55E" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Top fornecedores</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (data?.topSuppliers?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">Sem importações no período.</p>
+              ) : (
+                <ul className="space-y-3 text-sm">
+                  {data!.topSuppliers.map((s, i) => (
+                    <li key={s.name} className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded bg-[color:#1E293B] text-xs text-muted-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="truncate">{s.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="tabular text-muted-foreground">{s.count}x</div>
+                        <div className="text-[10px] text-muted-foreground">{fmtBRL(s.total)}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

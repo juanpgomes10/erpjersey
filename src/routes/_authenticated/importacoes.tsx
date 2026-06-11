@@ -118,7 +118,7 @@ const STATUS_META: Record<
   enviado: { label: "Enviado", color: "#60A5FA", bg: "rgba(96,165,250,0.15)" },
   em_transito: { label: "Em trânsito", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
   chegou_brasil: { label: "Chegou ao Brasil", color: "#A855F7", bg: "rgba(168,85,247,0.15)" },
-  aguardando_taxa: { label: "Aguardando taxa", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  aguardando_taxa: { label: "Aguardando pagamento de tributos", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   barrado_alfandega: { label: "Barrado na alfândega", color: "#EF4444", bg: "rgba(239,68,68,0.15)" },
   saiu_entrega: { label: "Saiu para entrega", color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
   entregue: { label: "Entregue", color: "#22C55E", bg: "rgba(34,197,94,0.15)" },
@@ -127,7 +127,7 @@ const STATUS_META: Record<
 
 const TABS: Array<{ key: string; label: string; statuses: ImportRow["status"][]; icon: typeof Package }> = [
   { key: "andamento", label: "Em andamento", icon: Truck, statuses: ["comprado", "enviado", "em_transito", "chegou_brasil", "saiu_entrega"] },
-  { key: "taxa", label: "Aguardando taxa", icon: DollarSign, statuses: ["aguardando_taxa"] },
+  { key: "taxa", label: "Aguardando pagamento de tributos", icon: DollarSign, statuses: ["aguardando_taxa"] },
   { key: "barrado", label: "Barrado", icon: Ban, statuses: ["barrado_alfandega"] },
   { key: "entregue", label: "Entregues", icon: CheckCircle2, statuses: ["entregue"] },
   { key: "todas", label: "Todas", icon: Package, statuses: [] },
@@ -145,15 +145,41 @@ function timeAgo(iso: string | null): string {
   return `há ${d}d`;
 }
 
+type DateRangeKey = "todos" | "hoje" | "ultimos_7" | "ultimos_30" | "mes_atual" | "ultimos_3_meses" | "ano_atual";
+const DATE_RANGE_LABELS: Record<DateRangeKey, string> = {
+  todos: "Todo período",
+  hoje: "Hoje",
+  ultimos_7: "Últimos 7 dias",
+  ultimos_30: "Últimos 30 dias",
+  mes_atual: "Mês atual",
+  ultimos_3_meses: "Últimos 3 meses",
+  ano_atual: "Ano atual",
+};
+function getDateRange(k: DateRangeKey): { start: Date | null; end: Date | null } {
+  const now = new Date();
+  const sToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const eToday = new Date(sToday); eToday.setDate(eToday.getDate() + 1);
+  switch (k) {
+    case "todos": return { start: null, end: null };
+    case "hoje": return { start: sToday, end: eToday };
+    case "ultimos_7": { const s = new Date(sToday); s.setDate(s.getDate() - 6); return { start: s, end: eToday }; }
+    case "ultimos_30": { const s = new Date(sToday); s.setDate(s.getDate() - 29); return { start: s, end: eToday }; }
+    case "mes_atual": return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+    case "ultimos_3_meses": return { start: new Date(now.getFullYear(), now.getMonth() - 2, 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 1) };
+    case "ano_atual": return { start: new Date(now.getFullYear(), 0, 1), end: new Date(now.getFullYear() + 1, 0, 1) };
+  }
+}
+
 function ImportacoesPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState("andamento");
+  const [dateRange, setDateRange] = useState<DateRangeKey>("todos");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [lastBulkRefresh, setLastBulkRefresh] = useState<string | null>(null);
 
-  const { data: imports = [], isLoading } = useQuery({
+  const { data: allImports = [], isLoading } = useQuery({
     queryKey: ["imports"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -164,6 +190,17 @@ function ImportacoesPage() {
       return (data ?? []) as unknown as ImportRow[];
     },
   });
+
+  // Aplica filtro de data primeiro
+  const imports = useMemo(() => {
+    const { start, end } = getDateRange(dateRange);
+    if (!start || !end) return allImports;
+    const s = start.getTime(), e = end.getTime();
+    return allImports.filter((i) => {
+      const t = new Date(i.created_at).getTime();
+      return t >= s && t < e;
+    });
+  }, [allImports, dateRange]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -307,7 +344,7 @@ function ImportacoesPage() {
         />
         <KpiCard
           icon={DollarSign}
-          label="Aguardando taxa"
+          label="Aguardando tributos"
           value={kpis.taxa}
           hint={kpis.taxaTotal > 0 ? fmtBRL(kpis.taxaTotal) : undefined}
         />
@@ -321,16 +358,30 @@ function ImportacoesPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex flex-wrap">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
-              <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular">
-                {counts[t.key]}
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList className="flex flex-wrap">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+                <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular">
+                  {counts[t.key]}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRangeKey)}>
+            <SelectTrigger className="w-[180px]">
+              <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(DATE_RANGE_LABELS) as DateRangeKey[]).map((k) => (
+                <SelectItem key={k} value={k}>{DATE_RANGE_LABELS[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
 
         <TabsContent value={tab} className="mt-4 space-y-3">
           {isLoading ? (
