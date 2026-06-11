@@ -522,7 +522,7 @@ function ProductDialog({
             <Label>Fornecedor</Label>
             <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Ex: Fornecedor X" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Custo*</Label>
               <Input type="number" step="0.01" value={costPrice} onChange={(e) => setCostPrice(e.target.value)} />
@@ -531,11 +531,8 @@ function ProductDialog({
               <Label>Venda*</Label>
               <Input type="number" step="0.01" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} />
             </div>
-            <div>
-              <Label>Mín. estoque</Label>
-              <Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-            </div>
           </div>
+
           <div>
             <Label>URL da imagem</Label>
             <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
