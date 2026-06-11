@@ -127,7 +127,7 @@ const STATUS_META: Record<
 
 const TABS: Array<{ key: string; label: string; statuses: ImportRow["status"][]; icon: typeof Package }> = [
   { key: "andamento", label: "Em andamento", icon: Truck, statuses: ["comprado", "enviado", "em_transito", "chegou_brasil", "saiu_entrega"] },
-  { key: "taxa", label: "Aguardando taxa", icon: DollarSign, statuses: ["aguardando_taxa"] },
+  { key: "taxa", label: "Aguardando pagamento de tributos", icon: DollarSign, statuses: ["aguardando_taxa"] },
   { key: "barrado", label: "Barrado", icon: Ban, statuses: ["barrado_alfandega"] },
   { key: "entregue", label: "Entregues", icon: CheckCircle2, statuses: ["entregue"] },
   { key: "todas", label: "Todas", icon: Package, statuses: [] },
