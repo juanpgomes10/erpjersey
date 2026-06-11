@@ -214,6 +214,56 @@ export type Database = {
           },
         ]
       }
+      integrations: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          external_store_id: string | null
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          platform: string
+          store_id: string
+          store_name: string | null
+          store_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          external_store_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform: string
+          store_id: string
+          store_name?: string | null
+          store_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          external_store_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform?: string
+          store_id?: string
+          store_name?: string | null
+          store_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           contact: string | null
@@ -420,12 +470,14 @@ export type Database = {
           customer_id: string | null
           delivered_at: string | null
           discount: number
+          external_id: string | null
           id: string
           notes: string | null
           order_number: number | null
           paid_at: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           shipped_at: string | null
+          source: string | null
           status: Database["public"]["Enums"]["order_status"]
           store_id: string
           total_value: number
@@ -438,12 +490,14 @@ export type Database = {
           customer_id?: string | null
           delivered_at?: string | null
           discount?: number
+          external_id?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
           paid_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           shipped_at?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id: string
           total_value?: number
@@ -456,12 +510,14 @@ export type Database = {
           customer_id?: string | null
           delivered_at?: string | null
           discount?: number
+          external_id?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
           paid_at?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           shipped_at?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string
           total_value?: number
