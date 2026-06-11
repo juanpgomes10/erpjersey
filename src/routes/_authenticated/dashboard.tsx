@@ -200,10 +200,6 @@ function DashboardPage() {
         value: v,
       }));
 
-      const lowStock = prods.filter((p) => {
-        const qty = (p.product_sizes ?? []).reduce((s, ps) => s + ps.quantity, 0);
-        return qty <= (p.min_stock ?? 0);
-      });
 
       const topMap = new Map<string, { qty: number; total: number }>();
       sales.forEach((s) => {
