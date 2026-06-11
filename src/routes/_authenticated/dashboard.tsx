@@ -371,13 +371,6 @@ function DashboardPage() {
           icon={AlertTriangle}
           variant="warning"
         />
-        <Kpi
-          label="Alertas de estoque"
-          value={String(data?.estoqueBaixo ?? 0)}
-          loading={isLoading}
-          icon={Package}
-          variant="warning"
-        />
         <Kpi label="Clientes" value={String(data?.clientes ?? 0)} loading={isLoading} icon={Users} />
         <Kpi
           label="IMPORTAÇÕES EM ANDAMENTO"
