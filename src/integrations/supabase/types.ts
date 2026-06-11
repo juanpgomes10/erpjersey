@@ -62,33 +62,39 @@ export type Database = {
         Row: {
           city: string | null
           created_at: string
+          external_id: string | null
           id: string
           instagram: string | null
           name: string
           notes: string | null
           phone: string | null
+          source: string | null
           store_id: string
           updated_at: string
         }
         Insert: {
           city?: string | null
           created_at?: string
+          external_id?: string | null
           id?: string
           instagram?: string | null
           name: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           store_id: string
           updated_at?: string
         }
         Update: {
           city?: string | null
           created_at?: string
+          external_id?: string | null
           id?: string
           instagram?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
+          source?: string | null
           store_id?: string
           updated_at?: string
         }
@@ -142,12 +148,14 @@ export type Database = {
           created_at: string
           customs_fee: number | null
           expected_delivery: string | null
+          external_id: string | null
           id: string
           last_tracking_update: string | null
           linked_order_ids: string[]
           notes: string | null
           order_numbers: number[]
           photos: string[]
+          source: string | null
           status: Database["public"]["Enums"]["import_status"]
           store_id: string
           supplier: string | null
@@ -165,12 +173,14 @@ export type Database = {
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
+          external_id?: string | null
           id?: string
           last_tracking_update?: string | null
           linked_order_ids?: string[]
           notes?: string | null
           order_numbers?: number[]
           photos?: string[]
+          source?: string | null
           status?: Database["public"]["Enums"]["import_status"]
           store_id: string
           supplier?: string | null
@@ -188,12 +198,14 @@ export type Database = {
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
+          external_id?: string | null
           id?: string
           last_tracking_update?: string | null
           linked_order_ids?: string[]
           notes?: string | null
           order_numbers?: number[]
           photos?: string[]
+          source?: string | null
           status?: Database["public"]["Enums"]["import_status"]
           store_id?: string
           supplier?: string | null
@@ -426,24 +438,27 @@ export type Database = {
           id: string
           order_id: string
           product_id: string | null
+          product_name: string | null
           quantity: number
-          size: Database["public"]["Enums"]["product_size"]
+          size: Database["public"]["Enums"]["product_size"] | null
           unit_price: number
         }
         Insert: {
           id?: string
           order_id: string
           product_id?: string | null
+          product_name?: string | null
           quantity: number
-          size: Database["public"]["Enums"]["product_size"]
+          size?: Database["public"]["Enums"]["product_size"] | null
           unit_price: number
         }
         Update: {
           id?: string
           order_id?: string
           product_id?: string | null
+          product_name?: string | null
           quantity?: number
-          size?: Database["public"]["Enums"]["product_size"]
+          size?: Database["public"]["Enums"]["product_size"] | null
           unit_price?: number
         }
         Relationships: [
