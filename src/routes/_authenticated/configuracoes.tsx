@@ -16,7 +16,37 @@ import {
   AlertTriangle,
   Sun,
   Moon,
+  Download,
+  Plug,
+  CheckCircle2,
+  RefreshCw,
+  HelpCircle,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  listIntegrations,
+  connectIntegration,
+  disconnectIntegration,
+  syncIntegration,
+} from "@/lib/integrations.functions";
+import {
+  fetchSalesRows,
+  fetchOrdersRows,
+  fetchCustomersRows,
+  fetchImportsRows,
+  fetchFinanceRows,
+  downloadXlsx,
+  periodToRange,
+  todayStr,
+  type ExportPeriod,
+} from "@/lib/export-xlsx";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
