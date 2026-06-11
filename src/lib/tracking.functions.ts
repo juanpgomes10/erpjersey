@@ -2,8 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Integração com 17TRACK (https://api.17track.net/) — suporta correios da China,
-// Correios BR e centenas de outras transportadoras.
+// Integração com 17TRACK (API v2.4). A chave é lida apenas no servidor.
 
 type TrackEvent = {
   time: string;
@@ -12,64 +11,141 @@ type TrackEvent = {
   stage?: string;
 };
 
-const inputSchema = z.object({
-  importId: z.string().uuid(),
-});
+const importStatusList = [
+  "comprado",
+  "enviado",
+  "em_transito",
+  "chegou_brasil",
+  "aguardando_taxa",
+  "barrado_alfandega",
+  "saiu_entrega",
+  "entregue",
+  "cancelado",
+] as const;
+type ImportStatus = (typeof importStatusList)[number];
+
+const STATUS_NOTIFICATION: Record<string, { title: string; type: "info" | "urgent" }> = {
+  enviado: { title: "📦 Importação enviada pelo fornecedor", type: "info" },
+  em_transito: { title: "🚚 Pedido em trânsito", type: "info" },
+  chegou_brasil: { title: "📦 Pedido recebido no Brasil", type: "info" },
+  aguardando_taxa: { title: "💰 Aguardando pagamento de tributos", type: "urgent" },
+  barrado_alfandega: { title: "⚠️ Pedido barrado na alfândega", type: "urgent" },
+  saiu_entrega: { title: "🚚 Saiu para entrega", type: "info" },
+  entregue: { title: "✅ Pedido entregue", type: "info" },
+};
+
+function getApiKey() {
+  const k = process.env["17TRACK_API_KEY"] ?? process.env.SEVENTEENTRACK_API_KEY;
+  if (!k) {
+    throw new Error("Integração de rastreamento não configurada (17TRACK_API_KEY).");
+  }
+  return k;
+}
+
+function mapStatus(status: string, sub: string): ImportStatus | null {
+  const s = (status ?? "").trim();
+  const sb = (sub ?? "").toLowerCase();
+  if (s === "Delivered") return "entregue";
+  if (s === "OutForDelivery") return "saiu_entrega";
+  if (s === "Exception") return "barrado_alfandega";
+  if (sb.includes("customs") || sb.includes("alfand") || sb.includes("hold")) return "barrado_alfandega";
+  if (sb.includes("pickup") || sb.includes("retir") || sb.includes("await_pickup")) return "aguardando_taxa";
+  if (sb.includes("arrival") || sb.includes("import_") || sb.includes("br_")) return "chegou_brasil";
+  if (s === "InTransit") return "em_transito";
+  if (s === "InfoReceived") return "enviado";
+  if (s === "NotFound" || s === "Undelivered") return null; // mantém estado atual
+  return null;
+}
+
+type TrackInfoResponse = {
+  data?: {
+    accepted?: Array<{
+      number?: string;
+      track_info?: {
+        latest_status?: { status?: string; sub_status?: string };
+        misc_info?: { carrier_code?: string | number };
+        tracking?: {
+          providers?: Array<{
+            provider?: { name?: string };
+            events?: Array<{
+              time_iso?: string;
+              description?: string;
+              location?: string;
+              stage?: string;
+            }>;
+          }>;
+        };
+      };
+    }>;
+  };
+};
+
+async function callTrack17(endpoint: string, body: unknown, apiKey: string) {
+  const res = await fetch(`https://api.17track.net/track/v2.4/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "17token": apiKey },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`17TRACK erro ${res.status}`);
+  return res.json();
+}
+
+// ───────────────────────── REGISTER ─────────────────────────
+export const registerTracking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ trackingCode: z.string().min(8).max(64) }).parse(d),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = getApiKey();
+    try {
+      const json = (await callTrack17(
+        "register",
+        [{ number: data.trackingCode }],
+        apiKey,
+      )) as { data?: { accepted?: Array<{ carrier?: number }> } };
+      const carrierCode = json.data?.accepted?.[0]?.carrier;
+      return { ok: true, carrierCode: carrierCode ? String(carrierCode) : null };
+    } catch {
+      // Pode falhar se já estiver registrado; não é erro fatal.
+      return { ok: true, carrierCode: null };
+    }
+  });
+
+// ───────────────────────── REFRESH ONE ─────────────────────────
+const refreshOneSchema = z.object({ importId: z.string().uuid() });
+
+async function refreshOneInternal(
+  supabase: ReturnType<typeof getApiKey> extends string ? never : never,
+) {
+  // Just a type marker; real impl is inline below.
+  void supabase;
+}
+void refreshOneInternal;
 
 export const refreshTracking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => inputSchema.parse(d))
+  .inputValidator((d: unknown) => refreshOneSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const apiKey = process.env["17TRACK_API_KEY"] ?? process.env.SEVENTEENTRACK_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "Integração de rastreamento não configurada. Adicione a chave 17TRACK_API_KEY.",
-      );
-    }
-
+    const apiKey = getApiKey();
     const { supabase } = context;
+
     const { data: imp, error } = await supabase
       .from("imports")
       .select("id, store_id, tracking_code, carrier, status")
       .eq("id", data.importId)
       .maybeSingle();
-
     if (error) throw new Error(error.message);
     if (!imp?.tracking_code) throw new Error("Importação sem código de rastreamento.");
 
-    // 1) registra (idempotente — 17TRACK ignora se já existir)
-    await fetch("https://api.17track.net/track/v2.2/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "17token": apiKey },
-      body: JSON.stringify([{ number: imp.tracking_code }]),
-    }).catch(() => null);
+    // garante registro (idempotente)
+    await callTrack17("register", [{ number: imp.tracking_code }], apiKey).catch(() => null);
 
-    // 2) consulta
-    const res = await fetch("https://api.17track.net/track/v2.2/gettrackinfo", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "17token": apiKey },
-      body: JSON.stringify([{ number: imp.tracking_code }]),
-    });
-    if (!res.ok) throw new Error(`17TRACK erro ${res.status}`);
-    const json = (await res.json()) as {
-      data?: {
-        accepted?: Array<{
-          track_info?: {
-            latest_status?: { status?: string; sub_status?: string };
-            tracking?: {
-              providers?: Array<{
-                events?: Array<{
-                  time_iso?: string;
-                  description?: string;
-                  location?: string;
-                  stage?: string;
-                }>;
-              }>;
-            };
-          };
-        }>;
-      };
-    };
+    const json = (await callTrack17(
+      "gettrackinfo",
+      [{ number: imp.tracking_code }],
+      apiKey,
+    )) as TrackInfoResponse;
 
     const accepted = json.data?.accepted?.[0]?.track_info;
     const events: TrackEvent[] =
@@ -82,22 +158,17 @@ export const refreshTracking = createServerFn({ method: "POST" })
         })),
       ) ?? [];
 
-    // Mapeia status 17TRACK -> nosso enum import_status
-    const sub = (accepted?.latest_status?.sub_status ?? "").toLowerCase();
-    const status = accepted?.latest_status?.status ?? "";
-    let mapped: string | null = null;
-    if (status === "Delivered") mapped = "entregue";
-    else if (status === "OutForDelivery") mapped = "saiu_entrega";
-    else if (sub.includes("customs") || sub.includes("alfand")) mapped = "barrado_alfandega";
-    else if (sub.includes("arrival") || sub.includes("import_") || sub.includes("br_")) mapped = "chegou_brasil";
-    else if (status === "InTransit") mapped = "em_transito";
-    else if (status === "InfoReceived") mapped = "enviado";
-    if (sub.includes("pickup") || sub.includes("retir")) mapped = "aguardando_taxa";
+    const rawStatus = accepted?.latest_status?.status ?? "";
+    const subStatus = accepted?.latest_status?.sub_status ?? "";
+    const mapped = mapStatus(rawStatus, subStatus);
+    const carrierCode = accepted?.misc_info?.carrier_code;
 
     const update: Record<string, unknown> = {
       tracking_events: events,
       last_tracking_update: new Date().toISOString(),
+      tracking_status_raw: rawStatus || null,
     };
+    if (carrierCode) update.carrier_code = String(carrierCode);
     if (mapped) update.status = mapped;
 
     const { error: upErr } = await supabase
@@ -106,7 +177,6 @@ export const refreshTracking = createServerFn({ method: "POST" })
       .eq("id", data.importId);
     if (upErr) throw new Error(upErr.message);
 
-    // Notifica o usuário se houve mudança de status
     if (mapped && mapped !== imp.status && imp.store_id) {
       const meta = STATUS_NOTIFICATION[mapped];
       if (meta) {
@@ -121,16 +191,87 @@ export const refreshTracking = createServerFn({ method: "POST" })
       }
     }
 
-    return { events, status: mapped ?? status };
+    return { events, status: mapped ?? rawStatus };
   });
 
-const STATUS_NOTIFICATION: Record<string, { title: string; type: "info" | "urgent" }> = {
-  enviado: { title: "📦 Importação enviada pelo fornecedor", type: "info" },
-  em_transito: { title: "🚚 Pedido em trânsito", type: "info" },
-  chegou_brasil: { title: "📦 Pedido recebido no Brasil", type: "info" },
-  aguardando_taxa: { title: "💰 Aguardando pagamento de tributos", type: "urgent" },
-  barrado_alfandega: { title: "⚠️ Pedido barrado na alfândega", type: "urgent" },
-  saiu_entrega: { title: "🚚 Saiu para entrega", type: "info" },
-  entregue: { title: "✅ Pedido entregue", type: "info" },
-};
+// ───────────────────────── REFRESH ALL ─────────────────────────
+export const refreshAllTrackings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const apiKey = getApiKey();
+    const { supabase } = context;
 
+    // Apenas as ativas (não entregues nem barradas/canceladas)
+    const { data: list, error } = await supabase
+      .from("imports")
+      .select("id, store_id, tracking_code, carrier, status")
+      .not("tracking_code", "is", null)
+      .not("status", "in", "(entregue,cancelado,barrado_alfandega)");
+    if (error) throw new Error(error.message);
+    if (!list?.length) return { updated: 0, total: 0 };
+
+    const numbers = list
+      .map((i) => i.tracking_code)
+      .filter(Boolean)
+      .slice(0, 40); // limite por chamada
+
+    if (numbers.length === 0) return { updated: 0, total: 0 };
+
+    const json = (await callTrack17(
+      "gettrackinfo",
+      numbers.map((n) => ({ number: n })),
+      apiKey,
+    )) as TrackInfoResponse;
+
+    const byNumber = new Map<string, NonNullable<TrackInfoResponse["data"]>["accepted"][number]>();
+    for (const a of json.data?.accepted ?? []) {
+      if (a.number) byNumber.set(a.number, a);
+    }
+
+    let updated = 0;
+    for (const imp of list) {
+      if (!imp.tracking_code) continue;
+      const a = byNumber.get(imp.tracking_code);
+      if (!a?.track_info) continue;
+      const info = a.track_info;
+      const events: TrackEvent[] =
+        info.tracking?.providers?.flatMap((p) =>
+          (p.events ?? []).map((e) => ({
+            time: e.time_iso ?? "",
+            description: e.description ?? "",
+            location: e.location,
+            stage: e.stage,
+          })),
+        ) ?? [];
+      const rawStatus = info.latest_status?.status ?? "";
+      const subStatus = info.latest_status?.sub_status ?? "";
+      const mapped = mapStatus(rawStatus, subStatus);
+
+      const update: Record<string, unknown> = {
+        tracking_events: events,
+        last_tracking_update: new Date().toISOString(),
+        tracking_status_raw: rawStatus || null,
+      };
+      const cc = info.misc_info?.carrier_code;
+      if (cc) update.carrier_code = String(cc);
+      if (mapped) update.status = mapped;
+
+      await supabase.from("imports").update(update as never).eq("id", imp.id);
+
+      if (mapped && mapped !== imp.status && imp.store_id) {
+        const meta = STATUS_NOTIFICATION[mapped];
+        if (meta) {
+          await supabase.from("notifications").insert({
+            store_id: imp.store_id,
+            type: meta.type,
+            title: meta.title,
+            body: `Rastreio ${imp.tracking_code}${imp.carrier ? ` • ${imp.carrier}` : ""}`,
+            link: "/importacoes",
+            related_import_id: imp.id,
+          } as never);
+        }
+      }
+      updated += 1;
+    }
+    return { updated, total: list.length };
+  });
