@@ -155,12 +155,16 @@ function ClientesPage() {
     let list = aggregated;
     if (search) {
       const q = search.toLowerCase();
+      const qDigits = q.replace(/\D/g, "");
       list = list.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
           (c.phone ?? "").toLowerCase().includes(q) ||
           (c.instagram ?? "").toLowerCase().includes(q) ||
-          (c.city ?? "").toLowerCase().includes(q),
+          (qDigits.length > 0 &&
+            c.orders.some((o) =>
+              String(o.order_number ?? "").padStart(4, "0").includes(qDigits),
+            )),
       );
     }
     if (teamFilter !== "all") list = list.filter((c) => c.teams.has(teamFilter));
@@ -227,7 +231,7 @@ function ClientesPage() {
             <div className="relative md:col-span-5">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, telefone, cidade..."
+                placeholder="Buscar por nome, telefone ou N° do pedido..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
