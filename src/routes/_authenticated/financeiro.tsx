@@ -101,6 +101,7 @@ function FinanceiroPage() {
   const [tab, setTab] = useState("visao");
   const [openNew, setOpenNew] = useState(false);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
+  const [expenseSort, setExpenseSort] = useState<"recent" | "oldest" | "high" | "low">("recent");
 
   const sinceISO = useMemo(() => {
     const d = new Date();
@@ -343,6 +344,7 @@ function FinanceiroPage() {
         <TabsList>
           <TabsTrigger value="visao">Visão geral</TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
           <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
         </TabsList>
 
@@ -426,6 +428,43 @@ function FinanceiroPage() {
             onDelete={(t) => setToDelete(t)}
             emptyLabel="Nenhum lançamento no período"
           />
+        </TabsContent>
+
+        <TabsContent value="despesas" className="space-y-3">
+          {(() => {
+            const expenses = (txs ?? []).filter((t) => t.type === "saida");
+            const sorted = [...expenses].sort((a, b) => {
+              if (expenseSort === "recent") return +new Date(b.created_at) - +new Date(a.created_at);
+              if (expenseSort === "oldest") return +new Date(a.created_at) - +new Date(b.created_at);
+              if (expenseSort === "high") return Number(b.value) - Number(a.value);
+              return Number(a.value) - Number(b.value);
+            });
+            const total = expenses.reduce((s, t) => s + Number(t.value), 0);
+            return (
+              <>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {expenses.length} lançamento(s) • Total <span className="font-semibold text-foreground">{fmtBRL(total)}</span>
+                  </div>
+                  <Select value={expenseSort} onValueChange={(v) => setExpenseSort(v as typeof expenseSort)}>
+                    <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recent">Mais recentes</SelectItem>
+                      <SelectItem value="oldest">Mais antigas</SelectItem>
+                      <SelectItem value="high">Mais caras</SelectItem>
+                      <SelectItem value="low">Mais baratas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <TxTable
+                  items={sorted}
+                  loading={loadingTx}
+                  onDelete={(t) => setToDelete(t)}
+                  emptyLabel="Nenhuma despesa no período"
+                />
+              </>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="fixas">
