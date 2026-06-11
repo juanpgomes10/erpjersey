@@ -10,9 +10,9 @@ import {
   Megaphone,
   Settings,
   LogOut,
-  Bell,
   Menu,
 } from "lucide-react";
+import { NotificationsBell } from "@/components/app-shell/notifications-bell";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
@@ -158,9 +158,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <h1 className="font-sora text-base font-semibold">{storeName}</h1>
       </div>
       <div className="flex flex-1 items-center justify-end gap-2 lg:flex-none">
-        <Button variant="ghost" size="icon" className="text-muted-foreground">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificationsBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md p-1 hover:bg-accent">
