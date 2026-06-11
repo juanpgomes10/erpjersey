@@ -346,12 +346,8 @@ function EstoquePage() {
 
                     <div className="mt-3 flex items-center justify-between">
                       <span className="font-sora text-sm font-semibold tabular">{fmtBRL(p.sale_price)}</span>
-                      {isLow && (
-                        <Badge variant="outline" className="border-[color:#D97706] text-[color:#D97706]">
-                          <AlertTriangle className="mr-1 h-3 w-3" /> Estoque baixo
-                        </Badge>
-                      )}
                     </div>
+
 
                     <div className="mt-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                       <Button variant="outline" size="sm" className="flex-1" onClick={() => { setEditing(p); setOpen(true); }}>
