@@ -44,7 +44,7 @@ const nav: NavItem[] = [
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/importacoes", label: "Importações", icon: Plane },
   { to: "/marketing", label: "Marketing", icon: Megaphone, soon: true },
-  { to: "/configuracoes", label: "Configurações", icon: Settings, soon: true },
+  { to: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
