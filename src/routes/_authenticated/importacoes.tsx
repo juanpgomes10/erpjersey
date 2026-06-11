@@ -358,16 +358,30 @@ function ImportacoesPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex flex-wrap">
-          {TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>
-              {t.label}
-              <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular">
-                {counts[t.key]}
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList className="flex flex-wrap">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+                <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular">
+                  {counts[t.key]}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRangeKey)}>
+            <SelectTrigger className="w-[180px]">
+              <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(DATE_RANGE_LABELS) as DateRangeKey[]).map((k) => (
+                <SelectItem key={k} value={k}>{DATE_RANGE_LABELS[k]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
 
         <TabsContent value={tab} className="mt-4 space-y-3">
           {isLoading ? (
