@@ -10,9 +10,9 @@ import {
   Megaphone,
   Settings,
   LogOut,
-  Bell,
   Menu,
 } from "lucide-react";
+import { NotificationsBell } from "@/components/app-shell/notifications-bell";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
