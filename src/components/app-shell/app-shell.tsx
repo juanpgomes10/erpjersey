@@ -39,7 +39,7 @@ const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/vendas", label: "Vendas", icon: ShoppingCart },
   { to: "/estoque", label: "Estoque", icon: Package },
-  { to: "/financeiro", label: "Financeiro", icon: Wallet, soon: true },
+  { to: "/financeiro", label: "Financeiro", icon: Wallet },
   { to: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { to: "/clientes", label: "Clientes", icon: Users, soon: true },
   { to: "/importacoes", label: "Importações", icon: Plane, soon: true },
