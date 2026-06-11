@@ -1,0 +1,2 @@
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS recurring boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_transactions_store_created ON public.transactions(store_id, created_at);
