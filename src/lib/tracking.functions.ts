@@ -223,8 +223,9 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
       apiKey,
     )) as TrackInfoResponse;
 
-    const byNumber = new Map<string, NonNullable<TrackInfoResponse["data"]>["accepted"][number]>();
-    for (const a of json.data?.accepted ?? []) {
+    type AcceptedItem = NonNullable<NonNullable<TrackInfoResponse["data"]>["accepted"]>[number];
+    const byNumber = new Map<string, AcceptedItem>();
+    for (const a of (json.data?.accepted ?? []) as AcceptedItem[]) {
       if (a.number) byNumber.set(a.number, a);
     }
 
