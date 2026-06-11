@@ -74,6 +74,8 @@ type Transaction = {
   recurring: boolean;
   notes: string | null;
   created_at: string;
+  source?: string | null;
+  external_id?: string | null;
 };
 
 const CATEGORY_LABEL: Record<TxCategory, string> = {
