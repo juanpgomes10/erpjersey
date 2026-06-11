@@ -112,7 +112,6 @@ function ConfiguracoesPage() {
           <TabTrigger value="seguranca" icon={Shield} label="Segurança" />
           <TabTrigger value="aparencia" icon={Palette} label="Aparência" />
           <TabTrigger value="exportar" icon={Download} label="Exportar Dados" />
-          <TabTrigger value="integracoes" icon={Plug} label="Integrações" />
         </TabsList>
 
         <div className="min-w-0 flex-1">
@@ -122,7 +121,6 @@ function ConfiguracoesPage() {
           <TabsContent value="seguranca" className="m-0"><SegurancaTab /></TabsContent>
           <TabsContent value="aparencia" className="m-0"><AparenciaTab /></TabsContent>
           <TabsContent value="exportar" className="m-0"><ExportarTab /></TabsContent>
-          <TabsContent value="integracoes" className="m-0"><IntegracoesTab /></TabsContent>
         </div>
       </Tabs>
     </div>
