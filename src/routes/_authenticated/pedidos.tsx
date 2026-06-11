@@ -99,12 +99,14 @@ type OrderRow = {
   shipped_at: string | null;
   delivered_at: string | null;
   cancelled_at: string | null;
+  source: string | null;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
-    size: string;
+    size: string | null;
     quantity: number;
     unit_price: number | string;
+    product_name: string | null;
     product: { id: string; name: string; team: string | null; season: string | null; model: string | null; image_url: string | null } | null;
   }>;
 };
@@ -127,7 +129,7 @@ function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product:products(id, name, team, season, model, image_url))",
+          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
         )
         .order("created_at", { ascending: false })
         .limit(200);
@@ -279,7 +281,7 @@ function PedidosPage() {
                       const total = Number(o.total_value) - Number(o.discount || 0);
                       const firstItem = o.items[0];
                       const productSummary = firstItem
-                        ? `${firstItem.product?.team ?? firstItem.product?.name ?? "Produto"}${o.items.length > 1 ? ` + ${o.items.length - 1} ${o.items.length - 1 === 1 ? "item" : "itens"}` : ""}`
+                        ? `${firstItem.product?.team ?? firstItem.product?.name ?? firstItem.product_name ?? "Produto"}${o.items.length > 1 ? ` + ${o.items.length - 1} ${o.items.length - 1 === 1 ? "item" : "itens"}` : ""}`
                         : "—";
                       return (
                         <tr
@@ -287,7 +289,14 @@ function PedidosPage() {
                           onClick={() => setDetailId(o.id)}
                           className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
                         >
-                          <td className="px-3 py-3 font-medium tabular">{orderNum(o.order_number)}</td>
+                          <td className="px-3 py-3 font-medium tabular">
+                            <div className="flex items-center gap-2">
+                              <span>{orderNum(o.order_number)}</span>
+                              {o.source === "shopify" && (
+                                <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-3 py-3">{o.customer?.name ?? "—"}</td>
                           <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
                           <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
@@ -313,7 +322,12 @@ function PedidosPage() {
                       className="w-full rounded-md border border-border bg-card p-3 text-left hover:bg-accent/40"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium tabular">{orderNum(o.order_number)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium tabular">{orderNum(o.order_number)}</span>
+                          {o.source === "shopify" && (
+                            <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
+                          )}
+                        </div>
                         <StatusBadge status={o.status} />
                       </div>
                       <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
@@ -427,7 +441,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{it.product?.name ?? "Produto"}</p>
+                      <p className="text-sm font-medium truncate">{it.product?.name ?? it.product_name ?? "Produto"}</p>
                       <p className="text-xs text-muted-foreground">Tam {it.size} · Qtd {it.quantity}</p>
                     </div>
                     <div className="text-right">
