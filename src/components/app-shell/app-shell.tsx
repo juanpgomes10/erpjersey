@@ -42,7 +42,7 @@ const nav: NavItem[] = [
   { to: "/financeiro", label: "Financeiro", icon: Wallet },
   { to: "/pedidos", label: "Pedidos", icon: ClipboardList },
   { to: "/clientes", label: "Clientes", icon: Users },
-  { to: "/importacoes", label: "Importações", icon: Plane, soon: true },
+  { to: "/importacoes", label: "Importações", icon: Plane },
   { to: "/marketing", label: "Marketing", icon: Megaphone, soon: true },
   { to: "/configuracoes", label: "Configurações", icon: Settings, soon: true },
 ];
