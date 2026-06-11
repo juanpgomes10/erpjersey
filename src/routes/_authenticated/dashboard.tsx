@@ -125,7 +125,7 @@ function DashboardPage() {
             .eq("status", "concluida"),
           supabase
             .from("products")
-            .select("id, name, min_stock, sale_price, product_sizes(quantity, size)"),
+            .select("id, name, sale_price, product_sizes(quantity, size)"),
           supabase.from("customers").select("id", { count: "exact", head: true }),
           supabase
             .from("orders")
