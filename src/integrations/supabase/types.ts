@@ -136,42 +136,57 @@ export type Database = {
       }
       imports: {
         Row: {
+          carrier: string | null
           created_at: string
           customs_fee: number | null
           expected_delivery: string | null
           id: string
+          last_tracking_update: string | null
           notes: string | null
+          order_numbers: number[]
+          photos: string[]
           status: Database["public"]["Enums"]["import_status"]
           store_id: string
           supplier: string | null
           total_value: number
           tracking_code: string | null
+          tracking_events: Json
           updated_at: string
         }
         Insert: {
+          carrier?: string | null
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
           id?: string
+          last_tracking_update?: string | null
           notes?: string | null
+          order_numbers?: number[]
+          photos?: string[]
           status?: Database["public"]["Enums"]["import_status"]
           store_id: string
           supplier?: string | null
           total_value?: number
           tracking_code?: string | null
+          tracking_events?: Json
           updated_at?: string
         }
         Update: {
+          carrier?: string | null
           created_at?: string
           customs_fee?: number | null
           expected_delivery?: string | null
           id?: string
+          last_tracking_update?: string | null
           notes?: string | null
+          order_numbers?: number[]
+          photos?: string[]
           status?: Database["public"]["Enums"]["import_status"]
           store_id?: string
           supplier?: string | null
           total_value?: number
           tracking_code?: string | null
+          tracking_events?: Json
           updated_at?: string
         }
         Relationships: [
@@ -703,6 +718,7 @@ export type Database = {
         | "saiu_entrega"
         | "entregue"
         | "cancelado"
+        | "barrado_alfandega"
       order_status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"
       payment_method:
         | "pix"
@@ -862,6 +878,7 @@ export const Constants = {
         "saiu_entrega",
         "entregue",
         "cancelado",
+        "barrado_alfandega",
       ],
       order_status: ["pendente", "pago", "enviado", "entregue", "cancelado"],
       payment_method: [
