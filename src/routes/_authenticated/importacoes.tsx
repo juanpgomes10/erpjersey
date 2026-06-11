@@ -294,6 +294,16 @@ function ImportacoesPage() {
     const entreguesMes = imports.filter(
       (i) => i.status === "entregue" && new Date(i.created_at).getTime() >= monthStart,
     );
+    // Tempo médio de entrega no período (created_at → last event Delivered / updated)
+    const entregues = imports.filter((i) => i.status === "entregue");
+    const deliveryDaysList = entregues.map((i) => {
+      const last = i.tracking_events?.[i.tracking_events.length - 1]?.time;
+      const end = last ? new Date(last).getTime() : new Date(i.last_tracking_update ?? i.created_at).getTime();
+      return Math.max(0, Math.round((end - new Date(i.created_at).getTime()) / 86400000));
+    });
+    const avgDelivery = deliveryDaysList.length
+      ? Math.round(deliveryDaysList.reduce((s, d) => s + d, 0) / deliveryDaysList.length)
+      : 0;
     return {
       andamento: andamento.length,
       avgDays,
@@ -301,41 +311,78 @@ function ImportacoesPage() {
       taxaTotal,
       barrado: barrado.length,
       entreguesMes: entreguesMes.length,
+      avgDelivery,
+      entregues: entregues.length,
+      deliveryDaysList,
     };
   }, [imports]);
 
+  // Gráfico de tempo médio de entrega por mês de compra (created_at)
+  const deliveryByMonth = useMemo(() => {
+    const entregues = imports.filter((i) => i.status === "entregue");
+    if (entregues.length === 0) return [] as Array<{ label: string; days: number; count: number }>;
+    const map = new Map<string, { sum: number; count: number; date: Date }>();
+    for (const i of entregues) {
+      const created = new Date(i.created_at);
+      const key = `${created.getFullYear()}-${created.getMonth()}`;
+      const last = i.tracking_events?.[i.tracking_events.length - 1]?.time;
+      const end = last ? new Date(last).getTime() : new Date(i.last_tracking_update ?? i.created_at).getTime();
+      const days = Math.max(0, (end - created.getTime()) / 86400000);
+      const c = map.get(key) ?? { sum: 0, count: 0, date: new Date(created.getFullYear(), created.getMonth(), 1) };
+      c.sum += days;
+      c.count += 1;
+      map.set(key, c);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map((v) => ({
+        label: v.date.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+        days: Math.round(v.sum / v.count),
+        count: v.count,
+      }));
+  }, [imports]);
+
+  // Histograma: dias até entrega por pedido (entregues no período)
+  const deliveryHistogram = useMemo(() => {
+    return kpis.deliveryDaysList
+      .map((d, idx) => ({ idx: idx + 1, dias: d }))
+      .sort((a, b) => a.dias - b.dias);
+  }, [kpis.deliveryDaysList]);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-5">
+      {/* Header — mobile-first */}
+      <div className="space-y-3">
         <div>
-          <h1 className="font-sora text-2xl font-semibold">Importações</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-sora text-xl font-semibold sm:text-2xl">Importações</h1>
+          <p className="text-xs text-muted-foreground sm:text-sm">
             Acompanhe todas as encomendas (China, Correios e outros) em um só lugar.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            Última atualização: {timeAgo(lastBulkRefresh)}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="flex-1 bg-[#2563EB] text-white hover:bg-[#1D4ED8] sm:flex-none"
+          >
+            <Plus className="mr-1.5 h-4 w-4" /> Nova importação
+          </Button>
           <Button
             variant="outline"
             onClick={() => refreshAllMut.mutate()}
             disabled={refreshAllMut.isPending}
+            className="flex-1 sm:flex-none"
           >
             <RefreshCw className={cn("mr-1.5 h-4 w-4", refreshAllMut.isPending && "animate-spin")} />
-            Atualizar todos
+            <span className="sm:inline">Atualizar</span>
           </Button>
-          <Button
-            onClick={() => setCreateOpen(true)}
-            className="bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
-          >
-            <Plus className="mr-1.5 h-4 w-4" /> Nova importação
-          </Button>
+          <span className="w-full text-[10px] text-muted-foreground sm:w-auto sm:text-xs">
+            Última atualização: {timeAgo(lastBulkRefresh)}
+          </span>
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
         <KpiCard
           icon={Truck}
           label="Em andamento"
@@ -344,7 +391,7 @@ function ImportacoesPage() {
         />
         <KpiCard
           icon={DollarSign}
-          label="Aguardando tributos"
+          label="Aguard. tributos"
           value={kpis.taxa}
           hint={kpis.taxaTotal > 0 ? fmtBRL(kpis.taxaTotal) : undefined}
         />
@@ -354,8 +401,23 @@ function ImportacoesPage() {
           value={kpis.barrado}
           pulse={kpis.barrado > 0}
         />
-        <KpiCard icon={CheckCircle2} label="Entregues no mês" value={kpis.entreguesMes} />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Entregues no mês"
+          value={kpis.entreguesMes}
+          hint={kpis.avgDelivery > 0 ? `~${kpis.avgDelivery}d p/ entregar` : undefined}
+        />
       </div>
+
+      {/* Tempo médio de entrega */}
+      <DeliveryTimeCharts
+        avgDays={kpis.avgDelivery}
+        sampleSize={kpis.entregues}
+        byMonth={deliveryByMonth}
+        histogram={deliveryHistogram}
+        rangeLabel={DATE_RANGE_LABELS[dateRange]}
+      />
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <div className="flex flex-wrap items-center justify-between gap-2">
