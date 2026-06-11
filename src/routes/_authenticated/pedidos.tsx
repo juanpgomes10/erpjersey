@@ -441,7 +441,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{it.product?.name ?? "Produto"}</p>
+                      <p className="text-sm font-medium truncate">{it.product?.name ?? it.product_name ?? "Produto"}</p>
                       <p className="text-xs text-muted-foreground">Tam {it.size} · Qtd {it.quantity}</p>
                     </div>
                     <div className="text-right">
