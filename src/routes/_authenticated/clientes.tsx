@@ -183,7 +183,9 @@ function ClientesPage() {
   const totals = useMemo(() => {
     const revenue = aggregated.reduce((s, c) => s + c.totalSpent, 0);
     const active = aggregated.filter((c) => c.ordersCount > 0).length;
-    return { revenue, active, total: aggregated.length };
+    const recurring = aggregated.filter((c) => c.ordersCount >= 2).length;
+    const recurrenceRate = active > 0 ? (recurring / active) * 100 : 0;
+    return { revenue, active, total: aggregated.length, recurring, recurrenceRate };
   }, [aggregated]);
 
   const selected = selectedId ? aggregated.find((c) => c.id === selectedId) ?? null : null;
@@ -191,15 +193,26 @@ function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-sora text-2xl font-semibold">Clientes</h1>
-        <p className="text-sm text-muted-foreground">Histórico, ticket médio e comportamento de compra</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-sora text-2xl font-semibold">Clientes</h1>
+          <p className="text-sm text-muted-foreground">Histórico, ticket médio e comportamento de compra</p>
+        </div>
+        <Button onClick={() => setOpenNew(true)} className="bg-[color:#2563EB] hover:bg-[color:#1D4ED8]">
+          <Plus className="mr-2 h-4 w-4" /> Novo cliente
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard icon={<Users className="h-4 w-4" />} label="Clientes" value={String(totals.total)} color="#2563EB" />
         <KpiCard icon={<ShoppingBag className="h-4 w-4" />} label="Ativos (com pedidos)" value={String(totals.active)} color="#16A34A" />
-        <KpiCard icon={<DollarSign className="h-4 w-4" />} label="Receita acumulada" value={fmtBRL(totals.revenue)} color="#D97706" />
+        <KpiCard
+          icon={<Repeat className="h-4 w-4" />}
+          label="Taxa de recorrência"
+          value={`${totals.recurrenceRate.toFixed(0)}%`}
+          sub={`${totals.recurring} de ${totals.active} compraram 2x+`}
+          color="#D97706"
+        />
         <KpiCard
           icon={<Calendar className="h-4 w-4" />}
           label="Ticket médio"
@@ -214,7 +227,7 @@ function ClientesPage() {
             <div className="relative md:col-span-5">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, telefone, Instagram, cidade..."
+                placeholder="Buscar por nome, telefone, cidade..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -229,20 +242,53 @@ function ClientesPage() {
                 <SelectItem value="name">Nome (A–Z)</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={teamFilter} onValueChange={setTeamFilter}>
-              <SelectTrigger className="md:col-span-2"><SelectValue placeholder="Time" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os times</SelectItem>
-                {allTeams.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={teamOpen} onOpenChange={setTeamOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="md:col-span-2 w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {teamFilter === "all" ? "Todos os times" : teamFilter}
+                  </span>
+                  {teamFilter !== "all" ? (
+                    <X
+                      className="ml-2 h-4 w-4 opacity-60 hover:opacity-100"
+                      onClick={(e) => { e.stopPropagation(); setTeamFilter("all"); }}
+                    />
+                  ) : (
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[260px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar time..." />
+                  <CommandList>
+                    <CommandEmpty>Nenhum time encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem onSelect={() => { setTeamFilter("all"); setTeamOpen(false); }}>
+                        <Check className={cn("mr-2 h-4 w-4", teamFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        Todos os times
+                      </CommandItem>
+                      {allTeams.map((t) => (
+                        <CommandItem key={t} value={t} onSelect={() => { setTeamFilter(t); setTeamOpen(false); }}>
+                          <Check className={cn("mr-2 h-4 w-4", teamFilter === t ? "opacity-100" : "opacity-0")} />
+                          {t}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="md:col-span-2"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="com-pedidos">Com pedidos</SelectItem>
+
                 <SelectItem value="sem-pedidos">Sem pedidos</SelectItem>
                 <SelectItem value="inativos">Inativos (90+ dias)</SelectItem>
               </SelectContent>
