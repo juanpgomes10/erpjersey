@@ -344,6 +344,7 @@ function FinanceiroPage() {
         <TabsList>
           <TabsTrigger value="visao">Visão geral</TabsTrigger>
           <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+          <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
           <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
         </TabsList>
 
