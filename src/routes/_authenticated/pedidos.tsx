@@ -99,12 +99,14 @@ type OrderRow = {
   shipped_at: string | null;
   delivered_at: string | null;
   cancelled_at: string | null;
+  source: string | null;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
-    size: string;
+    size: string | null;
     quantity: number;
     unit_price: number | string;
+    product_name: string | null;
     product: { id: string; name: string; team: string | null; season: string | null; model: string | null; image_url: string | null } | null;
   }>;
 };
