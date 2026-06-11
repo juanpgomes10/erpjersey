@@ -390,7 +390,7 @@ function ProductDialog({
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
-  const [minStock, setMinStock] = useState(String(product?.min_stock ?? "5"));
+  
   const [sizes, setSizes] = useState<Record<Size, string>>(() => {
     const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
     product?.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
