@@ -261,6 +261,65 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          financial_due: boolean
+          financial_due_days: number
+          id: string
+          import_blocked: boolean
+          import_delivered: boolean
+          import_out_for_delivery: boolean
+          import_taxed: boolean
+          stock_minimum: boolean
+          stock_zero: boolean
+          store_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          financial_due?: boolean
+          financial_due_days?: number
+          id?: string
+          import_blocked?: boolean
+          import_delivered?: boolean
+          import_out_for_delivery?: boolean
+          import_taxed?: boolean
+          stock_minimum?: boolean
+          stock_zero?: boolean
+          store_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          financial_due?: boolean
+          financial_due_days?: number
+          id?: string
+          import_blocked?: boolean
+          import_delivered?: boolean
+          import_out_for_delivery?: boolean
+          import_taxed?: boolean
+          stock_minimum?: boolean
+          stock_zero?: boolean
+          store_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -527,9 +586,11 @@ export type Database = {
           email: string
           id: string
           name: string
+          position: string | null
           role: Database["public"]["Enums"]["app_role"]
           store_id: string
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -537,9 +598,11 @@ export type Database = {
           email: string
           id: string
           name: string
+          position?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           store_id: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -547,9 +610,11 @@ export type Database = {
           email?: string
           id?: string
           name?: string
+          position?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           store_id?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -679,29 +744,41 @@ export type Database = {
         Row: {
           city: string | null
           created_at: string
+          description: string | null
           id: string
+          instagram: string | null
           logo_url: string | null
           name: string
           segment: string | null
+          state: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           city?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          instagram?: string | null
           logo_url?: string | null
           name: string
           segment?: string | null
+          state?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           city?: string | null
           created_at?: string
+          description?: string | null
           id?: string
+          instagram?: string | null
           logo_url?: string | null
           name?: string
           segment?: string | null
+          state?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
