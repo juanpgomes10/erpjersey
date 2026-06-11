@@ -521,17 +521,6 @@ function NotificacoesTab() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-sora text-base">Alertas de estoque</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <ToggleRow label="Notificar quando produto atingir estoque mínimo"
-            checked={prefs.stock_minimum} onChange={(v) => update("stock_minimum", v)} />
-          <ToggleRow label="Notificar quando produto zerar estoque"
-            checked={prefs.stock_zero} onChange={(v) => update("stock_zero", v)} />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
