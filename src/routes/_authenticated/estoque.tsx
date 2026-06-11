@@ -406,7 +406,7 @@ function ProductDialog({
     setGender(product.gender ?? "masculina");
     setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
     setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
-    setMinStock(String(product.min_stock));
+    
     const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
     product.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
     setSizes(init);
