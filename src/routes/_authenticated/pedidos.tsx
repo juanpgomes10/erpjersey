@@ -158,7 +158,14 @@ function PedidosPage() {
       d.setHours(0, 0, 0, 0);
       return d;
     }
-    d.setDate(1);
+    if (kind === "mes") {
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    const monthsMap = { "3meses": 3, "6meses": 6, "12meses": 12 } as const;
+    const months = monthsMap[kind as keyof typeof monthsMap];
+    d.setMonth(d.getMonth() - months);
     d.setHours(0, 0, 0, 0);
     return d;
   };
