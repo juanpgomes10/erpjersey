@@ -234,10 +234,12 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
       if (!imp.tracking_code) continue;
       const a = byNumber.get(imp.tracking_code);
       if (!a?.track_info) continue;
-      const info = a.track_info;
+      const info = a.track_info as NonNullable<AcceptedItem["track_info"]>;
+      type Provider = NonNullable<NonNullable<typeof info.tracking>["providers"]>[number];
+      type Ev = NonNullable<Provider["events"]>[number];
       const events: TrackEvent[] =
-        info.tracking?.providers?.flatMap((p) =>
-          (p.events ?? []).map((e) => ({
+        info.tracking?.providers?.flatMap((p: Provider) =>
+          (p.events ?? []).map((e: Ev) => ({
             time: e.time_iso ?? "",
             description: e.description ?? "",
             location: e.location,
