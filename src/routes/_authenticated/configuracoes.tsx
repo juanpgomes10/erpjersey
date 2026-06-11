@@ -557,7 +557,7 @@ function NotificacoesTab() {
           <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
             <div>
               <div className="text-sm">Email</div>
-              <div className="text-xs text-muted-foreground">{useAuth().user?.email}</div>
+              <div className="text-xs text-muted-foreground">{user?.email}</div>
             </div>
             <Switch checked={prefs.email_enabled} onCheckedChange={(v) => update("email_enabled", v)} />
           </div>
