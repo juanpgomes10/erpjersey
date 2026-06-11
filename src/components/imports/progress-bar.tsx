@@ -5,7 +5,7 @@ const STAGES = [
   { key: "enviado", label: "Enviado" },
   { key: "em_transito", label: "Em trânsito" },
   { key: "chegou_brasil", label: "Chegou ao BR" },
-  { key: "aguardando_taxa", label: "Aguard. taxa" },
+  { key: "aguardando_taxa", label: "Pagto tributos" },
   { key: "saiu_entrega", label: "Saiu p/ entrega" },
   { key: "entregue", label: "Entregue" },
 ] as const;
