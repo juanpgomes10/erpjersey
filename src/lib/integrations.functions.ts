@@ -114,21 +114,24 @@ function mapShopifyStatus(o: any): "pendente" | "pago" | "enviado" | "cancelado"
   return "pendente";
 }
 
-async function fetchShopifyPaged(url: string, token: string, key: string, maxPages = 4) {
-  const out: any[] = [];
-  let next: string | null = url;
-  let pages = 0;
-  while (next && pages < maxPages) {
-    const r: Response = await fetch(next, { headers: { "X-Shopify-Access-Token": token } });
-    if (!r.ok) throw new Error(`Falha ao buscar ${key} na Shopify (${r.status})`);
-    const j: any = await r.json();
-    out.push(...(j[key] ?? []));
-    const link = r.headers.get("link") ?? "";
-    const m = link.match(/<([^>]+)>;\s*rel="next"/);
-    next = m ? m[1] : null;
-    pages++;
+function shopifyNextCursor(linkHeader: string | null): string | null {
+  const match = (linkHeader ?? "").match(/<([^>]+)>;\s*rel="next"/);
+  if (!match?.[1]) return null;
+  try {
+    return new URL(match[1]).searchParams.get("page_info");
+  } catch {
+    return null;
   }
-  return out;
+}
+
+async function fetchShopifyPage(url: string, token: string, key: string) {
+  const r: Response = await fetch(url, { headers: { "X-Shopify-Access-Token": token } });
+  if (!r.ok) throw new Error(`Não foi possível buscar pedidos na Shopify (${r.status}). Tente novamente em alguns minutos.`);
+  const j: any = await r.json();
+  return {
+    records: (j[key] ?? []) as any[],
+    nextCursor: shopifyNextCursor(r.headers.get("link")),
+  };
 }
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -139,7 +142,9 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 export const syncIntegration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { platform: "shopify" | "nuvemshop" }) => z.object({ platform: Platform }).parse(d))
+  .inputValidator((d: { platform: "shopify" | "nuvemshop"; cursor?: string | null }) =>
+    z.object({ platform: Platform, cursor: z.string().max(2000).nullable().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: prof } = await supabase.from("profiles").select("store_id").eq("id", userId).single();
@@ -158,6 +163,7 @@ export const syncIntegration = createServerFn({ method: "POST" })
     let customersImported = 0;
     let ordersImported = 0;
     let trackingsImported = 0;
+    let nextCursor: string | null = null;
 
     if (data.platform === "shopify") {
       const base = shopifyBase(integ.store_url!);
@@ -166,12 +172,14 @@ export const syncIntegration = createServerFn({ method: "POST" })
       const since = new Date("2026-01-01T00:00:00Z").toISOString();
 
       // ---------- ORDERS (fonte da verdade — clientes derivados daqui) ----------
-      const orders = await fetchShopifyPaged(
-        `${base}/orders.json?status=any&limit=250&created_at_min=${since}`,
-        token,
-        "orders",
-        20,
-      );
+      // Processa uma página por chamada. Isso evita que a requisição fique longa
+      // demais e apareça "Failed to fetch" no navegador durante lojas com muitos pedidos.
+      const pageUrl = data.cursor
+        ? `${base}/orders.json?limit=50&page_info=${encodeURIComponent(data.cursor)}`
+        : `${base}/orders.json?status=any&limit=50&created_at_min=${encodeURIComponent(since)}&order=created_at%20asc`;
+      const page = await fetchShopifyPage(pageUrl, token, "orders");
+      const orders = page.records;
+      nextCursor = page.nextCursor;
 
       const customerMap = new Map<string, string>(); // shopify customer id -> internal id
 
@@ -419,5 +427,7 @@ export const syncIntegration = createServerFn({ method: "POST" })
       ordersImported,
       customersImported,
       trackingsImported,
+      nextCursor,
+      hasMore: !!nextCursor,
     };
   });

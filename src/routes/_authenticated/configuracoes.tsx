@@ -1163,14 +1163,31 @@ function IntegrationCard({
     setSyncing(true);
     const tid = toast.loading("Sincronizando clientes e pedidos...");
     try {
-      const res: any = await sync({ data: { platform } });
-      const o = res?.ordersImported ?? res?.imported ?? 0;
-      const c = res?.customersImported ?? 0;
-      const t = res?.trackingsImported ?? 0;
-      toast.success(`✅ ${o} pedido(s), ${c} cliente(s) e ${t} rastreio(s) importados`, { id: tid });
+      let cursor: string | null = null;
+      let pages = 0;
+      let ordersTotal = 0;
+      let customersTotal = 0;
+      let trackingsTotal = 0;
+
+      do {
+        const res: any = await sync({ data: { platform, cursor } });
+        pages += 1;
+        ordersTotal += res?.ordersImported ?? res?.imported ?? 0;
+        customersTotal += res?.customersImported ?? 0;
+        trackingsTotal += res?.trackingsImported ?? 0;
+        cursor = res?.nextCursor ?? null;
+        if (cursor) {
+          toast.loading(`Sincronizando Shopify... ${pages} página(s) processada(s)`, { id: tid });
+        }
+      } while (cursor);
+
+      toast.success(`✅ ${ordersTotal} pedido(s), ${customersTotal} cliente(s) e ${trackingsTotal} rastreio(s) importados`, { id: tid });
       onChange();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao sincronizar", { id: tid });
+      const message = e?.message === "Failed to fetch"
+        ? "A conexão caiu durante a sincronização. Tente novamente; o processo continua sem duplicar dados."
+        : e?.message ?? "Erro ao sincronizar";
+      toast.error(message, { id: tid });
     } finally {
       setSyncing(false);
     }
