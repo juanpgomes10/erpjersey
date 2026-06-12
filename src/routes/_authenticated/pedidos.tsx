@@ -292,9 +292,6 @@ function PedidosPage() {
                           <td className="px-3 py-3 font-medium tabular">
                             <div className="flex items-center gap-2">
                               <span>{orderNum(o.order_number)}</span>
-                              {o.source === "shopify" && (
-                                <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
-                              )}
                             </div>
                           </td>
                           <td className="px-3 py-3">{o.customer?.name ?? "—"}</td>
