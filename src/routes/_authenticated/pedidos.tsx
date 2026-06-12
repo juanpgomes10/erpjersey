@@ -292,9 +292,6 @@ function PedidosPage() {
                           <td className="px-3 py-3 font-medium tabular">
                             <div className="flex items-center gap-2">
                               <span>{orderNum(o.order_number)}</span>
-                              {o.source === "shopify" && (
-                                <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
-                              )}
                             </div>
                           </td>
                           <td className="px-3 py-3">{o.customer?.name ?? "—"}</td>
@@ -321,13 +318,10 @@ function PedidosPage() {
                       onClick={() => setDetailId(o.id)}
                       className="w-full rounded-md border border-border bg-card p-3 text-left hover:bg-accent/40"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium tabular">{orderNum(o.order_number)}</span>
-                          {o.source === "shopify" && (
-                            <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
-                          )}
-                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium tabular">{orderNum(o.order_number)}</span>
+                          </div>
                         <StatusBadge status={o.status} />
                       </div>
                       <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>

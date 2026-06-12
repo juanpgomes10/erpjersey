@@ -568,11 +568,6 @@ function TxTable({
                       <Repeat className="mr-0.5 inline h-2.5 w-2.5" /> Fixa
                     </span>
                   )}
-                  {t.source === "shopify" && (
-                    <span className="rounded bg-[color:#16A34A15] px-1.5 py-0.5 text-[10px] font-medium text-[color:#16A34A]">
-                      Shopify
-                    </span>
-                  )}
                   <span className="truncate text-sm font-medium">{t.description}</span>
                 </div>
                 <div className="mt-0.5 text-xs text-muted-foreground">

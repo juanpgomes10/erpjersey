@@ -17,12 +17,7 @@ import {
   Sun,
   Moon,
   Download,
-  Plug,
-  CheckCircle2,
-  RefreshCw,
-  HelpCircle,
 } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
   DialogContent,
@@ -30,12 +25,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  listIntegrations,
-  connectIntegration,
-  disconnectIntegration,
-  syncIntegration,
-} from "@/lib/integrations.functions";
 import {
   fetchSalesRows,
   fetchOrdersRows,
@@ -118,7 +107,6 @@ function ConfiguracoesPage() {
           <TabTrigger value="seguranca" icon={Shield} label="Segurança" />
           <TabTrigger value="aparencia" icon={Palette} label="Aparência" />
           <TabTrigger value="exportar" icon={Download} label="Exportar Dados" />
-          <TabTrigger value="integracoes" icon={Plug} label="Integrações" />
         </TabsList>
 
         <div className="min-w-0 flex-1">
@@ -128,7 +116,6 @@ function ConfiguracoesPage() {
           <TabsContent value="seguranca" className="m-0"><SegurancaTab /></TabsContent>
           <TabsContent value="aparencia" className="m-0"><AparenciaTab /></TabsContent>
           <TabsContent value="exportar" className="m-0"><ExportarTab /></TabsContent>
-          <TabsContent value="integracoes" className="m-0"><IntegracoesTab /></TabsContent>
         </div>
       </Tabs>
     </div>
@@ -1068,268 +1055,3 @@ function ExportarTab() {
   );
 }
 
-/* ---------------- INTEGRAÇÕES ---------------- */
-
-function IntegracoesTab() {
-  const qc = useQueryClient();
-  const list = useServerFn(listIntegrations);
-  const { data, isLoading } = useQuery({
-    queryKey: ["integrations"],
-    queryFn: () => list(),
-  });
-  const refetch = () => qc.invalidateQueries({ queryKey: ["integrations"] });
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-4 md:grid-cols-2">
-        <SkeletonCard /><SkeletonCard /><SkeletonCard />
-      </div>
-    );
-  }
-  const shopify = data?.find((i: any) => i.platform === "shopify");
-  const nuvem = data?.find((i: any) => i.platform === "nuvemshop");
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <IntegrationCard
-        platform="shopify"
-        name="Shopify"
-        description="Importe pedidos da sua loja Shopify automaticamente para o ERPJersey"
-        integration={shopify}
-        onChange={refetch}
-      />
-      <IntegrationCard
-        platform="nuvemshop"
-        name="Nuvemshop"
-        description="Importe pedidos da sua loja Nuvemshop para o ERPJersey"
-        integration={nuvem}
-        onChange={refetch}
-      />
-    </div>
-  );
-}
-
-function timeAgo(iso?: string | null) {
-  if (!iso) return "Nunca";
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "agora";
-  if (mins < 60) return `há ${mins} min`;
-  const h = Math.floor(mins / 60);
-  if (h < 24) return `há ${h}h`;
-  const d = Math.floor(h / 24);
-  return `há ${d}d`;
-}
-
-function IntegrationCard({
-  platform, name, description, integration, onChange,
-}: {
-  platform: "shopify" | "nuvemshop";
-  name: string;
-  description: string;
-  integration?: any;
-  onChange: () => void;
-}) {
-  const connect = useServerFn(connectIntegration);
-  const disconnect = useServerFn(disconnectIntegration);
-  const sync = useServerFn(syncIntegration);
-  const [storeUrl, setStoreUrl] = useState("");
-  const [storeId, setStoreId] = useState("");
-  const [token, setToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
-  const [help, setHelp] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-
-  const connected = !!integration;
-
-  const handleConnect = async () => {
-    setLoading(true);
-    try {
-      const res: any = await connect({
-        data: { platform, token, storeUrl: storeUrl || undefined, storeId: storeId || undefined },
-      });
-      toast.success(`${name} conectado${res?.storeName ? `: ${res.storeName}` : ""}`);
-      setToken(""); setStoreUrl(""); setStoreId("");
-      onChange();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Credenciais inválidas. Verifique a URL e o token.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-    const tid = toast.loading("Sincronizando clientes e pedidos...");
-    try {
-      let cursor: string | null = null;
-      let pages = 0;
-      let ordersTotal = 0;
-      let customersTotal = 0;
-      let trackingsTotal = 0;
-
-      do {
-        const res: any = await sync({ data: { platform, cursor } });
-        pages += 1;
-        ordersTotal += res?.ordersImported ?? res?.imported ?? 0;
-        customersTotal += res?.customersImported ?? 0;
-        trackingsTotal += res?.trackingsImported ?? 0;
-        cursor = res?.nextCursor ?? null;
-        if (cursor) {
-          toast.loading(`Sincronizando Shopify... ${pages} página(s) processada(s)`, { id: tid });
-        }
-      } while (cursor);
-
-      toast.success(`✅ ${ordersTotal} pedido(s), ${customersTotal} cliente(s) e ${trackingsTotal} rastreio(s) importados`, { id: tid });
-      onChange();
-    } catch (e: any) {
-      const message = e?.message === "Failed to fetch"
-        ? "A conexão caiu durante a sincronização. Tente novamente; o processo continua sem duplicar dados."
-        : e?.message ?? "Erro ao sincronizar";
-      toast.error(message, { id: tid });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="font-sora text-base">{name}</CardTitle>
-          {connected ? (
-            <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">
-              <CheckCircle2 className="mr-1 h-3 w-3" /> Conectado
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-[color:#1E293B] text-[10px]">Disponível</Badge>
-          )}
-        </div>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {connected ? (
-          <>
-            <div className="rounded-md border border-[color:#1E293B] bg-[color:#0F172A] p-3 text-sm">
-              <div className="font-medium">{integration.store_name ?? integration.store_url ?? integration.external_store_id}</div>
-              <div className="text-xs text-muted-foreground">
-                Última sincronização: {timeAgo(integration.last_synced_at)}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button className="flex-1" disabled={syncing} onClick={handleSync}>
-                {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                Sincronizar agora
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="border-red-500/40 text-red-400 hover:bg-red-500/10">
-                    Desconectar
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Desconectar {name}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Os pedidos já importados continuam no ERPJersey, mas novas sincronizações serão interrompidas.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={async () => {
-                        try {
-                          await disconnect({ data: { platform } });
-                          toast.success(`${name} desconectado`);
-                          onChange();
-                        } catch (e: any) {
-                          toast.error(e?.message ?? "Erro");
-                        }
-                      }}
-                    >
-                      Desconectar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </>
-        ) : (
-          <>
-            {platform === "shopify" ? (
-              <div className="space-y-2">
-                <Label>URL da loja</Label>
-                <Input placeholder="minhaloja.myshopify.com" value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label>ID da loja</Label>
-                <Input placeholder="1234567" value={storeId} onChange={(e) => setStoreId(e.target.value)} />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Access Token</Label>
-              <div className="relative">
-                <Input
-                  type={showToken ? "text" : "password"}
-                  value={token}
-                  onChange={(e) => setToken(e.target.value)}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  onClick={() => setShowToken((s) => !s)}
-                >
-                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setHelp(true)}
-                className="inline-flex items-center gap-1 text-xs text-[color:#2563EB] hover:underline"
-              >
-                <HelpCircle className="h-3 w-3" /> Como obter o Access Token?
-              </button>
-            </div>
-            <Button className="w-full" disabled={loading || !token} onClick={handleConnect}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-              Conectar {name}
-            </Button>
-          </>
-        )}
-
-        <Dialog open={help} onOpenChange={setHelp}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Como obter o Access Token do {name}</DialogTitle>
-              <DialogDescription>Siga o passo a passo abaixo.</DialogDescription>
-            </DialogHeader>
-            {platform === "shopify" ? (
-              <ol className="list-decimal space-y-2 pl-5 text-sm">
-                <li>Acesse o painel da Shopify.</li>
-                <li>Vá em <strong>Configurações → Aplicativos e canais de vendas</strong>.</li>
-                <li>Clique em <strong>Desenvolver aplicativos</strong>.</li>
-                <li>
-                  Crie um novo app e ative as permissões:{" "}
-                  <code className="rounded bg-[color:#1E293B] px-1">read_orders</code>,{" "}
-                  <code className="rounded bg-[color:#1E293B] px-1">read_customers</code>,{" "}
-                  <code className="rounded bg-[color:#1E293B] px-1">read_products</code>.
-                </li>
-                <li>Copie o <strong>Admin API Access Token</strong> gerado.</li>
-              </ol>
-            ) : (
-              <ol className="list-decimal space-y-2 pl-5 text-sm">
-                <li>Acesse o painel da Nuvemshop.</li>
-                <li>Vá em <strong>Configurações → Aplicativos</strong>.</li>
-                <li>Clique em <strong>Criar aplicativo parceiro</strong> ou use um app existente.</li>
-                <li>Copie o <strong>User ID</strong> (ID da loja) e o <strong>Access Token</strong> gerado.</li>
-              </ol>
-            )}
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
-  );
-}
