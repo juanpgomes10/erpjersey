@@ -226,56 +226,6 @@ export type Database = {
           },
         ]
       }
-      integrations: {
-        Row: {
-          access_token: string | null
-          created_at: string
-          external_store_id: string | null
-          id: string
-          is_active: boolean
-          last_synced_at: string | null
-          platform: string
-          store_id: string
-          store_name: string | null
-          store_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          access_token?: string | null
-          created_at?: string
-          external_store_id?: string | null
-          id?: string
-          is_active?: boolean
-          last_synced_at?: string | null
-          platform: string
-          store_id: string
-          store_name?: string | null
-          store_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          access_token?: string | null
-          created_at?: string
-          external_store_id?: string | null
-          id?: string
-          is_active?: boolean
-          last_synced_at?: string | null
-          platform?: string
-          store_id?: string
-          store_name?: string | null
-          store_url?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "integrations_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       leads: {
         Row: {
           contact: string | null
