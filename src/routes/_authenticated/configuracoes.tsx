@@ -17,12 +17,7 @@ import {
   Sun,
   Moon,
   Download,
-  Plug,
-  CheckCircle2,
-  RefreshCw,
-  HelpCircle,
 } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Dialog,
   DialogContent,
