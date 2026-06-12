@@ -328,9 +328,6 @@ function ClientesPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 truncate">
                         <span className="truncate font-medium">{c.name}</span>
-                        {(c as any).source === "shopify" && (
-                          <span className="rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">Shopify</span>
-                        )}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {[c.phone, c.instagram, c.city].filter(Boolean).join(" • ") || "Sem contato"}
