@@ -105,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem('erpjersey:theme');if(!t){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}var r=document.documentElement;if(t==='dark'){r.classList.add('dark');}else{r.classList.remove('dark');}r.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
+const themeBootScript = `(function(){try{var t=localStorage.getItem('erpjersey:theme');if(t!=='light'&&t!=='dark'){t='dark';}var r=document.documentElement;if(t==='dark'){r.classList.add('dark');}else{r.classList.remove('dark');}r.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
