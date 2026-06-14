@@ -1,5 +1,5 @@
 import markAsset from "@/assets/erpjersey-mark.png.asset.json";
-import wordmarkAsset from "@/assets/erpjersey-wordmark.png.asset.json";
+import wordmarkAsset from "@/assets/erpjersey-wordmark-dark.png.asset.json";
 import bagAsset from "@/assets/erpjersey-bag.png.asset.json";
 
 interface LogoProps {
