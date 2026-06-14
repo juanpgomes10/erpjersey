@@ -11,7 +11,10 @@ import {
   Settings,
   LogOut,
   Menu,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { NotificationsBell } from "@/components/app-shell/notifications-bell";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +161,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <h1 className="font-sora text-base font-semibold">{storeName}</h1>
       </div>
       <div className="flex flex-1 items-center justify-end gap-2 lg:flex-none">
+        <ThemeToggle />
         <NotificationsBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -184,3 +188,20 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
     </header>
   );
 }
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={toggle}
+      aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
+      title={isDark ? "Tema claro" : "Tema escuro"}
+    >
+      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </Button>
+  );
+}
+
