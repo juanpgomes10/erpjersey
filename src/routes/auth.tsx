@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { Logo, LogoMark } from "@/components/brand/logo";
+import { Logo, LogoMark, LogoBag } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,9 @@ function AuthPage() {
       >
         <Logo size={36} />
         <div className="text-white">
+          <div className="mb-8 flex justify-center">
+            <LogoBag size={180} />
+          </div>
           <h1 className="font-sora text-4xl font-semibold leading-tight">
             Tudo sobre sua loja de camisas.
             <br />
@@ -96,6 +99,7 @@ function AuthPage() {
           <p className="mt-4 text-base text-[color:#94A3B8]">
             Sistema de gestão para lojas de camisas e importados.
           </p>
+
           <ul className="mt-10 space-y-4">
             {[
               "Controle estoque, vendas e financeiro sem planilhas",
