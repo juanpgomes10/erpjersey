@@ -12,6 +12,10 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import markAsset from "../assets/erpjersey-mark.png.asset.json";
+
+const markAssetUrl = markAsset.url;
+
 
 function NotFoundComponent() {
   return (
