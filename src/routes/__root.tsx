@@ -85,6 +85,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "ERPJersey — Gestão de Lojas de Camisas" },
       { name: "description", content: "Sistema completo de gestão para lojas de camisas e importados." },
       { name: "theme-color", content: "#0F172A" },
+      { property: "og:title", content: "ERPJersey — Gestão de Lojas de Camisas" },
+      { name: "twitter:title", content: "ERPJersey — Gestão de Lojas de Camisas" },
+      { property: "og:description", content: "Sistema completo de gestão para lojas de camisas e importados." },
+      { name: "twitter:description", content: "Sistema completo de gestão para lojas de camisas e importados." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ba8aa540-4fec-433a-8bad-2ae0fc0976d8/id-preview-4b90e3d3--d37ffcc1-f226-4064-9f5d-7c8b9044aee0.lovable.app-1781480563709.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ba8aa540-4fec-433a-8bad-2ae0fc0976d8/id-preview-4b90e3d3--d37ffcc1-f226-4064-9f5d-7c8b9044aee0.lovable.app-1781480563709.png" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -105,13 +113,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const themeBootScript = `(function(){try{var t=localStorage.getItem('erpjersey:theme');if(t!=='light'&&t!=='dark'){t='dark';}var r=document.documentElement;if(t==='dark'){r.classList.add('dark');}else{r.classList.remove('dark');}r.style.colorScheme=t;}catch(e){document.documentElement.classList.add('dark');}})();`;
-
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className="dark">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <HeadContent />
       </head>
       <body>
@@ -127,8 +132,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster position="top-right" theme="dark" richColors closeButton />
     </QueryClientProvider>
   );
 }
-
