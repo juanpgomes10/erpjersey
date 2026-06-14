@@ -161,6 +161,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <h1 className="font-sora text-base font-semibold">{storeName}</h1>
       </div>
       <div className="flex flex-1 items-center justify-end gap-2 lg:flex-none">
+        <ThemeToggle />
         <NotificationsBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
