@@ -11,7 +11,10 @@ import {
   Settings,
   LogOut,
   Menu,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { NotificationsBell } from "@/components/app-shell/notifications-bell";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
