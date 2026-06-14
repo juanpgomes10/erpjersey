@@ -152,7 +152,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="lg:hidden">
-        <LogoMark size={26} />
+        <Logo size={22} />
       </div>
       <div className="hidden flex-1 lg:block">
         <h1 className="font-sora text-base font-semibold">{storeName}</h1>
