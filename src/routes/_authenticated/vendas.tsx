@@ -572,6 +572,15 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 </div>
               </TabsContent>
             </Tabs>
+            <div className="mt-3">
+              <Label>Endereço (opcional)</Label>
+              <Textarea
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                placeholder="Rua, número, complemento, bairro, cidade/UF, CEP"
+                rows={2}
+              />
+            </div>
           </section>
 
           {/* 2. PRODUTOS */}
