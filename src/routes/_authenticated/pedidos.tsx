@@ -99,6 +99,52 @@ function StatusBadge({ status }: { status: DisplayStatus }) {
   );
 }
 
+function FilterGroup({
+  label,
+  options,
+  activeTab,
+  counts,
+  onChange,
+}: {
+  label: string;
+  options: { value: DisplayStatus; label: string }[];
+  activeTab: DisplayStatus | "todos";
+  counts: Record<string, number>;
+  onChange: (v: DisplayStatus | "todos") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {options.map((t) => {
+          const active = activeTab === t.value;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => onChange(t.value)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "border-[color:#2563EB] bg-[color:#2563EB15] text-[color:#2563EB]"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {t.label}
+              <span
+                className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${active ? "bg-[color:#2563EB] text-white" : "bg-muted"}`}
+              >
+                {counts[t.value] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const orderNum = (n: number | null | undefined) => `#${String(n ?? 0).padStart(4, "0")}`;
 
 type OrderRow = {
