@@ -542,7 +542,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => setCustomerId(c.id)}
+                        onClick={() => { setCustomerId(c.id); setCustomerAddress(c.address ?? ""); }}
                         className={`flex w-full items-center justify-between border-b border-border p-3 text-left last:border-none hover:bg-accent ${customerId === c.id ? "bg-accent" : ""}`}
                       >
                         <div>
