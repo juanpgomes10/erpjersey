@@ -532,6 +532,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           source,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          shipping_cost: shippingCost,
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .select()
