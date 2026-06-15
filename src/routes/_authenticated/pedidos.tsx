@@ -618,7 +618,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 font-sora">
               Pedido {orderNum(order.order_number)}
-              <StatusBadge status={displayStatusOf(order)} />
+              <OrderStatusBadges o={order} />
             </SheetTitle>
             <p className="text-xs text-muted-foreground">{fmtDateTime(order.created_at)}</p>
           </SheetHeader>
