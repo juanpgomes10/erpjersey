@@ -50,14 +50,16 @@ type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
 type DisplayStatus = OrderStatus | "envio_pendente";
 
-const STATUS_TABS: { value: DisplayStatus | "todos"; label: string }[] = [
-  { value: "todos", label: "Todos" },
+const FINANCE_TABS: { value: DisplayStatus; label: string }[] = [
+  { value: "pago", label: "Pago" },
+  { value: "pendente", label: "Pagamento pendente" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
+const LOGISTICS_TABS: { value: DisplayStatus; label: string }[] = [
   { value: "envio_pendente", label: "Envio pendente" },
-  { value: "pendente", label: "Pendentes" },
-  { value: "pago", label: "Pagos" },
-  { value: "enviado", label: "Enviados" },
-  { value: "entregue", label: "Entregues" },
-  { value: "cancelado", label: "Cancelados" },
+  { value: "enviado", label: "Enviado" },
+  { value: "entregue", label: "Entregue" },
 ];
 
 const STATUS_LABEL: Record<DisplayStatus, string> = {
