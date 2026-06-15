@@ -310,6 +310,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     setCfgGender("masculina");
     setCfgCostStr("");
     setCfgPriceStr("");
+    setCfgPersonalize(false);
+    setCfgPersonName("");
+    setCfgPersonNumber("");
   }
 
   // Reset ao fechar
