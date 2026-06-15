@@ -265,6 +265,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [cfgGender, setCfgGender] = useState<"masculina" | "feminina" | "infantil">("masculina");
   const [cfgCostStr, setCfgCostStr] = useState("");
   const [cfgPriceStr, setCfgPriceStr] = useState("");
+  const [cfgPersonalize, setCfgPersonalize] = useState(false);
+  const [cfgPersonName, setCfgPersonName] = useState("");
+  const [cfgPersonNumber, setCfgPersonNumber] = useState("");
 
   // Cliente
   const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
@@ -307,6 +310,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     setCfgGender("masculina");
     setCfgCostStr("");
     setCfgPriceStr("");
+    setCfgPersonalize(false);
+    setCfgPersonName("");
+    setCfgPersonNumber("");
   }
 
   // Reset ao fechar
@@ -448,7 +454,14 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     }
 
     const genderLabel = cfgGender === "masculina" ? "Masc." : cfgGender === "feminina" ? "Fem." : "Infantil";
-    const fullLabel = `${baseLabel} · ${genderLabel}`;
+    const personParts: string[] = [];
+    if (cfgPersonalize) {
+      if (cfgPersonName.trim()) personParts.push(`Nome: ${cfgPersonName.trim()}`);
+      if (cfgPersonNumber.trim()) personParts.push(`Nº ${cfgPersonNumber.trim()}`);
+    }
+    const personSuffix = personParts.length ? ` · Personalização (${personParts.join(", ")})` : "";
+    const fullLabel = `${baseLabel} · ${genderLabel}${personSuffix}`;
+
 
     setCart((prev) => [
       ...prev,
@@ -825,6 +838,43 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                       </button>
                     ))}
                   </div>
+                </div>
+
+                <div className="rounded-md border border-border bg-background/40 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label className="text-sm">Personalização</Label>
+                      <p className="text-xs text-muted-foreground">Nome e número estampados na camisa.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      {([["nao","Não"],["sim","Sim"]] as const).map(([k,l]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => {
+                            const v = k === "sim";
+                            setCfgPersonalize(v);
+                            if (!v) { setCfgPersonName(""); setCfgPersonNumber(""); }
+                          }}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${(cfgPersonalize ? "sim" : "nao") === k ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {cfgPersonalize && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label>Nome</Label>
+                        <Input value={cfgPersonName} onChange={(e) => setCfgPersonName(e.target.value)} placeholder="Nome do cliente" />
+                      </div>
+                      <div>
+                        <Label>Número</Label>
+                        <Input value={cfgPersonNumber} onChange={(e) => setCfgPersonNumber(e.target.value)} placeholder="Ex.: 10" inputMode="numeric" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
