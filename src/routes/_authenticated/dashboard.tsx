@@ -328,8 +328,8 @@ function DashboardPage() {
       return {
         faturamento,
         lucro,
-        vendas: sales.length,
-        pedidosPendentes: orders.count ?? 0,
+        vendas: orders.length,
+        pedidosPendentes: pendingOrders.count ?? 0,
         clientes: customers.count ?? 0,
         importacoesAndamento,
         avgDeliveryDays,
@@ -343,7 +343,15 @@ function DashboardPage() {
         chartDays,
         chartMethods,
         top5,
-        lastSales: lastSales.data ?? [],
+        lastSales: (lastOrders.data ?? []) as Array<{
+          id: string;
+          order_number: number | null;
+          total_value: number | string;
+          discount: number | string;
+          payment_method: string;
+          created_at: string;
+          customer: { name: string } | null;
+        }>,
 
       };
     },
