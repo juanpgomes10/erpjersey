@@ -403,7 +403,7 @@ function PedidosPage() {
                           <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
                           <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
                           <td className="px-3 py-3 text-muted-foreground">{paymentMethodLabel[o.payment_method] ?? o.payment_method}</td>
-                          <td className="px-3 py-3"><StatusBadge status={displayStatusOf(o)} /></td>
+                          <td className="px-3 py-3"><OrderStatusBadges o={o} /></td>
                           <td className="px-3 py-3 text-muted-foreground">{fmtDate(o.created_at)}</td>
                           <td className="px-3 py-3 text-right text-muted-foreground"><ChevronRight className="ml-auto h-4 w-4" /></td>
                         </tr>
