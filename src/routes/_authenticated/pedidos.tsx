@@ -574,7 +574,40 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
               </ul>
             </section>
 
+            {/* Fornecedor / rastreio (editável) */}
+            <section className="space-y-3 rounded-md border border-border p-3">
+              <div>
+                <Label className="mb-1.5 block">Fornecedor</Label>
+                <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    {ORDER_SOURCE_TABS.map((t) => (
+                      <TabsTrigger key={t.value} value={t.value} className="text-xs">{t.label}</TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                {src !== "estoque" && (
+                  <Input
+                    className="mt-2"
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                    placeholder={src === "fornecedor_china" ? "Nome do fornecedor" : "Nome do revendedor"}
+                  />
+                )}
+              </div>
+              <div>
+                <Label>Código de rastreamento</Label>
+                <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Você pode preencher isso depois. Ao informar, é vinculado à página de Importações.
+                </p>
+              </div>
+              <Button className="w-full" onClick={() => saveSupplier.mutate()} disabled={saveSupplier.isPending}>
+                {saveSupplier.isPending ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </section>
+
             {/* Ações */}
+
             <section className="space-y-2">
               <Label>Alterar status</Label>
               <Select value={order.status} onValueChange={(v) => changeStatus.mutate(v as OrderStatus)}>
