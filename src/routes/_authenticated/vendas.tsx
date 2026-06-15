@@ -277,7 +277,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
   // Pagamento e faturamento
   const [paymentMethod, setPaymentMethod] = useState<string>("pix");
-  const [source, setSource] = useState<"estoque" | "drop" | "loja_parceira">("estoque");
+  const [source, setSource] = useState<SourceKey>("estoque");
+  const [supplierName, setSupplierName] = useState("");
+  const [trackingCode, setTrackingCode] = useState("");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
   const [shippingCostStr, setShippingCostStr] = useState("");
@@ -322,6 +324,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setCustomerAddress("");
       setPaymentMethod("pix");
       setSource("estoque");
+      setSupplierName("");
+      setTrackingCode("");
       setPaidValueStr("");
       setNetValueStr("");
       setShippingCostStr("");
@@ -329,6 +333,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSaleDate(todayStr());
     }
   }, [open]);
+
 
   const { data: products } = useQuery({
     queryKey: ["products-search"],
