@@ -1000,7 +1000,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
           {/* 4. FATURAMENTO */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">4. Dados de faturamento</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">5. Dados de faturamento</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Valor pago pelo cliente</Label>
