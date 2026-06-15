@@ -100,6 +100,9 @@ type OrderRow = {
   delivered_at: string | null;
   cancelled_at: string | null;
   source: string | null;
+  supplier_name: string | null;
+  tracking_code: string | null;
+  store_id: string;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
@@ -110,6 +113,7 @@ type OrderRow = {
     product: { id: string; name: string; team: string | null; season: string | null; model: string | null; image_url: string | null } | null;
   }>;
 };
+
 
 export const Route = createFileRoute("/_authenticated/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — ERPJersey" }] }),
