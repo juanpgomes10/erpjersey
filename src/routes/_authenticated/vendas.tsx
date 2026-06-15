@@ -1065,3 +1065,203 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     </Dialog>
   );
 }
+
+/* ---------------- Edit Sale Sheet ---------------- */
+
+type SaleRow = {
+  id: string;
+  source: string | null;
+  supplier_name: string | null;
+  tracking_code: string | null;
+  payment_method: string;
+  total_value: number | string;
+  net_value: number | string | null;
+  notes: string | null;
+  order_id: string | null;
+  store_id: string;
+  customer_name_snapshot: string | null;
+  customer: { name: string } | null;
+};
+
+function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [src, setSrc] = useState<SourceKey>("estoque");
+  const [supplier, setSupplier] = useState("");
+  const [tracking, setTracking] = useState("");
+  const [payment, setPayment] = useState("pix");
+  const [paid, setPaid] = useState("");
+  const [net, setNet] = useState("");
+  const [obs, setObs] = useState("");
+
+  useEffect(() => {
+    if (!sale) return;
+    const s = (sale.source ?? "estoque") as string;
+    const normalized: SourceKey =
+      s === "drop" ? "fornecedor_china" :
+      s === "loja_parceira" ? "revendedor_br" :
+      (s as SourceKey);
+    setSrc(normalized);
+    setSupplier(sale.supplier_name ?? "");
+    setTracking(sale.tracking_code ?? "");
+    setPayment(sale.payment_method ?? "pix");
+    setPaid(String(sale.total_value ?? ""));
+    setNet(sale.net_value != null ? String(sale.net_value) : "");
+    setObs(sale.notes ?? "");
+  }, [sale]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!sale) return;
+      const trackingTrim = tracking.trim();
+      const supplierTrim = supplier.trim();
+      const paidValue = Number(paid) || 0;
+      const netValue = Number(net) || paidValue;
+
+      const { error } = await supabase
+        .from("sales")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          payment_method: payment,
+          total_value: paidValue,
+          net_value: netValue,
+          notes: obs || null,
+        } as never)
+        .eq("id", sale.id);
+      if (error) throw error;
+
+      // Propaga para o pedido vinculado
+      if (sale.order_id) {
+        const orderStatus: "pago" | "pendente" =
+          src === "estoque" || trackingTrim ? "pago" : "pendente";
+        await supabase
+          .from("orders")
+          .update({
+            source: src,
+            supplier_name: supplierTrim || null,
+            tracking_code: trackingTrim || null,
+            payment_method: payment,
+            total_value: paidValue,
+            notes: obs || null,
+            status: orderStatus,
+          } as never)
+          .eq("id", sale.order_id);
+
+        if (trackingTrim) {
+          const { data: ord } = await supabase
+            .from("orders")
+            .select("order_number")
+            .eq("id", sale.order_id)
+            .maybeSingle();
+          await linkOrderToImport({
+            storeId: sale.store_id,
+            trackingCode: trackingTrim,
+            supplierName: supplierTrim || null,
+            orderId: sale.order_id,
+            orderNumber: ord?.order_number ?? null,
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Venda atualizada");
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
+      onClose();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const open = !!sale;
+  if (!sale) {
+    return (
+      <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+        <SheetContent />
+      </Sheet>
+    );
+  }
+
+  const customerName = sale.customer?.name ?? sale.customer_name_snapshot ?? "—";
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="font-sora">Editar venda</SheetTitle>
+          <p className="text-xs text-muted-foreground">{customerName}</p>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-5">
+          <section>
+            <Label className="mb-1.5 block">Fornecedor</Label>
+            <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
+              <TabsList className="grid w-full grid-cols-3">
+                {SOURCE_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} className="text-xs">
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            {src !== "estoque" && (
+              <div className="mt-3">
+                <Label>Nome do {src === "fornecedor_china" ? "fornecedor" : "revendedor"}</Label>
+                <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              </div>
+            )}
+          </section>
+
+          <section>
+            <Label>Código de rastreamento</Label>
+            <Input
+              value={tracking}
+              onChange={(e) => setTracking(e.target.value)}
+              placeholder="Ex.: LP123456789CN"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ao preencher, o código é vinculado à página de Importações e o pedido sai de Pendentes.
+            </p>
+          </section>
+
+          <section className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Valor pago</Label>
+              <Input type="number" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
+            </div>
+            <div>
+              <Label>Líquido</Label>
+              <Input type="number" step="0.01" value={net} onChange={(e) => setNet(e.target.value)} />
+            </div>
+          </section>
+
+          <section>
+            <Label>Forma de pagamento</Label>
+            <Select value={payment} onValueChange={setPayment}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(paymentMethodLabel).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
+          <section>
+            <Label>Observações</Label>
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
+          </section>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
