@@ -220,7 +220,7 @@ function PedidosPage() {
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as OrderStatus | "todos")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DisplayStatus | "todos")}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
           {STATUS_TABS.map((t) => {
             const active = tab === t.value;
