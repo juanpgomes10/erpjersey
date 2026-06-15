@@ -339,9 +339,9 @@ function FinanceiroPage() {
           icon={<TrendingDown className="h-4 w-4" />}
           label="Custo de frete dos pedidos"
           value={fmtBRL(freteCost)}
-          sub="Lançamentos de despesa categoria Frete"
+          sub="Soma do custo de frete informado em cada pedido"
           color="#DC2626"
-          loading={loadingTx}
+          loading={!orders}
         />
         <KpiCard
           icon={<Package className="h-4 w-4" />}
