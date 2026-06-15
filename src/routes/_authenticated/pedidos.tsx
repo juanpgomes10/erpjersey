@@ -5,6 +5,8 @@ import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRig
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
+import { detectCarrier } from "@/lib/carrier";
+import { Textarea } from "@/components/ui/textarea";
 import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +102,9 @@ type OrderRow = {
   delivered_at: string | null;
   cancelled_at: string | null;
   source: string | null;
+  supplier_name: string | null;
+  tracking_code: string | null;
+  store_id: string;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
@@ -110,6 +115,7 @@ type OrderRow = {
     product: { id: string; name: string; team: string | null; season: string | null; model: string | null; image_url: string | null } | null;
   }>;
 };
+
 
 export const Route = createFileRoute("/_authenticated/pedidos")({
   head: () => ({ meta: [{ title: "Pedidos — ERPJersey" }] }),
@@ -129,8 +135,9 @@ function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
+          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, supplier_name, tracking_code, store_id, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
         )
+
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -349,21 +356,113 @@ function PedidosPage() {
 
 /* ---------------- Detail Drawer ---------------- */
 
+type SourceKey = "estoque" | "fornecedor_china" | "revendedor_br";
+const ORDER_SOURCE_TABS: { value: SourceKey; label: string }[] = [
+  { value: "estoque", label: "Estoque da loja" },
+  { value: "fornecedor_china", label: "Fornecedor China" },
+  { value: "revendedor_br", label: "Revendedor BR" },
+];
+
 function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [src, setSrc] = useState<SourceKey>("estoque");
+  const [supplier, setSupplier] = useState("");
+  const [tracking, setTracking] = useState("");
+
+  useEffect(() => {
+    if (!order) return;
+    const s = (order.source ?? "estoque") as string;
+    const normalized: SourceKey =
+      s === "drop" ? "fornecedor_china" :
+      s === "loja_parceira" ? "revendedor_br" :
+      (["estoque", "fornecedor_china", "revendedor_br"].includes(s) ? (s as SourceKey) : "estoque");
+    setSrc(normalized);
+    setSupplier(order.supplier_name ?? "");
+    setTracking(order.tracking_code ?? "");
+  }, [order]);
 
   const changeStatus = useMutation({
     mutationFn: async (status: OrderStatus) => {
       if (!order) return;
       const { error } = await supabase.from("orders").update({ status } as never).eq("id", order.id);
       if (error) throw error;
+      // Sincroniza venda vinculada
+      await supabase.from("sales").update({} as never).eq("order_id", order.id);
     },
     onSuccess: () => {
       toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const saveSupplier = useMutation({
+    mutationFn: async () => {
+      if (!order) return;
+      const trackingTrim = tracking.trim();
+      const supplierTrim = supplier.trim();
+      const newStatus: OrderStatus =
+        order.status === "pendente" && (src === "estoque" || trackingTrim) ? "pago" : order.status;
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          status: newStatus,
+        } as never)
+        .eq("id", order.id);
+      if (error) throw error;
+
+      await supabase
+        .from("sales")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+        } as never)
+        .eq("order_id", order.id);
+
+      if (trackingTrim) {
+        const { data: existing } = await supabase
+          .from("imports")
+          .select("id, linked_order_ids, order_numbers")
+          .eq("tracking_code", trackingTrim)
+          .maybeSingle();
+        if (existing) {
+          const linked = Array.from(new Set([...(existing.linked_order_ids ?? []), order.id]));
+          const nums = Array.from(
+            new Set([...(existing.order_numbers ?? []), order.order_number].filter(Boolean) as number[]),
+          );
+          await supabase
+            .from("imports")
+            .update({ linked_order_ids: linked, order_numbers: nums } as never)
+            .eq("id", existing.id);
+        } else {
+          const guess = detectCarrier(trackingTrim);
+          await supabase.from("imports").insert({
+            store_id: order.store_id,
+            tracking_code: trackingTrim,
+            supplier: supplierTrim || null,
+            carrier: guess?.name ?? null,
+            country: guess?.country ?? null,
+            status: "comprado",
+            total_value: 0,
+            linked_order_ids: [order.id],
+            order_numbers: order.order_number ? [order.order_number] : [],
+          } as never);
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Pedido atualizado");
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
 
   const remove = useMutation({
@@ -380,6 +479,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
   });
+
 
   const open = !!order;
   if (!order) {
@@ -474,7 +574,40 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
               </ul>
             </section>
 
+            {/* Fornecedor / rastreio (editável) */}
+            <section className="space-y-3 rounded-md border border-border p-3">
+              <div>
+                <Label className="mb-1.5 block">Fornecedor</Label>
+                <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    {ORDER_SOURCE_TABS.map((t) => (
+                      <TabsTrigger key={t.value} value={t.value} className="text-xs">{t.label}</TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                {src !== "estoque" && (
+                  <Input
+                    className="mt-2"
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                    placeholder={src === "fornecedor_china" ? "Nome do fornecedor" : "Nome do revendedor"}
+                  />
+                )}
+              </div>
+              <div>
+                <Label>Código de rastreamento</Label>
+                <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Você pode preencher isso depois. Ao informar, é vinculado à página de Importações.
+                </p>
+              </div>
+              <Button className="w-full" onClick={() => saveSupplier.mutate()} disabled={saveSupplier.isPending}>
+                {saveSupplier.isPending ? "Salvando..." : "Salvar alterações"}
+              </Button>
+            </section>
+
             {/* Ações */}
+
             <section className="space-y-2">
               <Label>Alterar status</Label>
               <Select value={order.status} onValueChange={(v) => changeStatus.mutate(v as OrderStatus)}>

@@ -448,7 +448,9 @@ export type Database = {
           source: string | null
           status: Database["public"]["Enums"]["order_status"]
           store_id: string
+          supplier_name: string | null
           total_value: number
+          tracking_code: string | null
           updated_at: string
           user_id: string | null
         }
@@ -468,7 +470,9 @@ export type Database = {
           source?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id: string
+          supplier_name?: string | null
           total_value?: number
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -488,7 +492,9 @@ export type Database = {
           source?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string
+          supplier_name?: string | null
           total_value?: number
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -706,12 +712,15 @@ export type Database = {
           id: string
           net_value: number
           notes: string | null
+          order_id: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           profit: number
           source: Database["public"]["Enums"]["sale_source"]
           status: Database["public"]["Enums"]["sale_status"]
           store_id: string
+          supplier_name: string | null
           total_value: number
+          tracking_code: string | null
           updated_at: string
           user_id: string | null
         }
@@ -722,12 +731,15 @@ export type Database = {
           id?: string
           net_value?: number
           notes?: string | null
+          order_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           profit?: number
           source?: Database["public"]["Enums"]["sale_source"]
           status?: Database["public"]["Enums"]["sale_status"]
           store_id: string
+          supplier_name?: string | null
           total_value?: number
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -738,12 +750,15 @@ export type Database = {
           id?: string
           net_value?: number
           notes?: string | null
+          order_id?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           profit?: number
           source?: Database["public"]["Enums"]["sale_source"]
           status?: Database["public"]["Enums"]["sale_status"]
           store_id?: string
+          supplier_name?: string | null
           total_value?: number
+          tracking_code?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -753,6 +768,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
           {
@@ -902,7 +924,12 @@ export type Database = {
         | "transferencia"
         | "outro"
       product_size: "P" | "M" | "G" | "GG" | "XGG"
-      sale_source: "estoque" | "drop" | "loja_parceira"
+      sale_source:
+        | "estoque"
+        | "drop"
+        | "loja_parceira"
+        | "fornecedor_china"
+        | "revendedor_br"
       sale_status: "concluida" | "cancelada"
       transaction_category:
         | "venda"
@@ -1064,7 +1091,13 @@ export const Constants = {
         "outro",
       ],
       product_size: ["P", "M", "G", "GG", "XGG"],
-      sale_source: ["estoque", "drop", "loja_parceira"],
+      sale_source: [
+        "estoque",
+        "drop",
+        "loja_parceira",
+        "fornecedor_china",
+        "revendedor_br",
+      ],
       sale_status: ["concluida", "cancelada"],
       transaction_category: [
         "venda",

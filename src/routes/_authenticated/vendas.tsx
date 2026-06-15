@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Receipt, X, UserPlus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -31,14 +33,60 @@ import {
 import { useProfile } from "@/hooks/use-profile";
 
 type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+type SourceKey = "estoque" | "fornecedor_china" | "revendedor_br";
 
-const SOURCE_OPTIONS = [
+const SOURCE_TABS: { value: SourceKey; label: string }[] = [
   { value: "estoque", label: "Estoque da loja" },
-  { value: "drop", label: "Drop" },
-  { value: "loja_parceira", label: "Loja parceira / grupo" },
-] as const;
-const sourceLabel = (s: string) =>
-  SOURCE_OPTIONS.find((o) => o.value === s)?.label ?? s;
+  { value: "fornecedor_china", label: "Fornecedor China" },
+  { value: "revendedor_br", label: "Revendedor BR" },
+];
+
+const sourceLabel = (s: string) => {
+  if (s === "drop") return "Fornecedor China";
+  if (s === "loja_parceira") return "Revendedor BR";
+  const f = SOURCE_TABS.find((o) => o.value === s);
+  return f?.label ?? s;
+};
+
+// Helper para vincular pedido a uma importação (upsert)
+async function linkOrderToImport(opts: {
+  storeId: string;
+  trackingCode: string;
+  supplierName: string | null;
+  orderId: string;
+  orderNumber: number | null;
+}) {
+  const code = opts.trackingCode.trim();
+  if (!code) return;
+  const { data: existing } = await supabase
+    .from("imports")
+    .select("id, linked_order_ids, order_numbers")
+    .eq("tracking_code", code)
+    .maybeSingle();
+  if (existing) {
+    const linked = Array.from(new Set([...(existing.linked_order_ids ?? []), opts.orderId]));
+    const nums = Array.from(
+      new Set([...(existing.order_numbers ?? []), opts.orderNumber].filter(Boolean) as number[]),
+    );
+    await supabase
+      .from("imports")
+      .update({ linked_order_ids: linked, order_numbers: nums } as never)
+      .eq("id", existing.id);
+  } else {
+    const guess = detectCarrier(code);
+    await supabase.from("imports").insert({
+      store_id: opts.storeId,
+      tracking_code: code,
+      supplier: opts.supplierName,
+      carrier: guess?.name ?? null,
+      country: guess?.country ?? null,
+      status: "comprado",
+      total_value: 0,
+      linked_order_ids: [opts.orderId],
+      order_numbers: opts.orderNumber ? [opts.orderNumber] : [],
+    } as never);
+  }
+}
 
 export const Route = createFileRoute("/_authenticated/vendas")({
   head: () => ({ meta: [{ title: "Vendas — ERPJersey" }] }),
@@ -48,6 +96,7 @@ export const Route = createFileRoute("/_authenticated/vendas")({
 function VendasPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const { data: sales, isLoading } = useQuery({
     queryKey: ["sales"],
@@ -69,6 +118,8 @@ function VendasPage() {
     const productNames = (s.items as Array<{ product: { name: string } | null }>)?.map((i) => i.product?.name?.toLowerCase() ?? "").join(" ");
     return customerName.includes(q) || productNames.includes(q);
   });
+
+  const editing = (sales ?? []).find((s) => s.id === editId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -123,7 +174,11 @@ function VendasPage() {
                     const netValue = Number((s as unknown as { net_value?: number }).net_value ?? 0) || Number(s.total_value);
                     const sourceVal = (s as unknown as { source?: string }).source ?? "estoque";
                     return (
-                      <tr key={s.id} className="border-b border-border last:border-none hover:bg-accent/40">
+                      <tr
+                        key={s.id}
+                        onClick={() => setEditId(s.id)}
+                        className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
+                      >
                         <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
                         <td className="px-3 py-3 font-medium">{customer}</td>
                         <td className="px-3 py-3 text-muted-foreground">
@@ -150,6 +205,7 @@ function VendasPage() {
       </Card>
 
       <NewSaleDialog open={open} onOpenChange={setOpen} />
+      <EditSaleSheet sale={editing as unknown as SaleRow | null} onClose={() => setEditId(null)} />
     </div>
   );
 }
@@ -221,7 +277,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
   // Pagamento e faturamento
   const [paymentMethod, setPaymentMethod] = useState<string>("pix");
-  const [source, setSource] = useState<"estoque" | "drop" | "loja_parceira">("estoque");
+  const [source, setSource] = useState<SourceKey>("estoque");
+  const [supplierName, setSupplierName] = useState("");
+  const [trackingCode, setTrackingCode] = useState("");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
   const [shippingCostStr, setShippingCostStr] = useState("");
@@ -266,6 +324,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setCustomerAddress("");
       setPaymentMethod("pix");
       setSource("estoque");
+      setSupplierName("");
+      setTrackingCode("");
       setPaidValueStr("");
       setNetValueStr("");
       setShippingCostStr("");
@@ -273,6 +333,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSaleDate(todayStr());
     }
   }, [open]);
+
 
   const { data: products } = useQuery({
     queryKey: ["products-search"],
@@ -447,7 +508,49 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         }
       }
 
-      // 2. Venda
+      const createdAtIso =
+        saleDate && saleDate !== todayStr()
+          ? new Date(`${saleDate}T12:00:00`).toISOString()
+          : null;
+
+      // 2. Pedido (sempre criar — toda venda gera um pedido)
+      const trackingTrim = trackingCode.trim();
+      const supplierTrim = supplierName.trim();
+      const orderStatus: "pago" | "pendente" =
+        source === "estoque" || trackingTrim ? "pago" : "pendente";
+
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          store_id: profile.store_id,
+          customer_id: finalCustomerId,
+          user_id: profile.id,
+          total_value: paidValue,
+          status: orderStatus,
+          payment_method: paymentMethod,
+          notes: notes || null,
+          source,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
+        } as never)
+        .select()
+        .single();
+      if (orderErr) throw orderErr;
+
+      const { error: orderItemsErr } = await supabase.from("order_items").insert(
+        cart.map((c) => ({
+          order_id: order.id,
+          product_id: c.productId,
+          product_name: c.productName,
+          size: c.size,
+          quantity: c.quantity,
+          unit_price: c.unitPrice,
+        })),
+      );
+      if (orderItemsErr) throw orderItemsErr;
+
+      // 3. Venda
       const { data: sale, error } = await supabase
         .from("sales")
         .insert({
@@ -458,19 +561,20 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           total_value: paidValue,
           net_value: netValue,
           source,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          order_id: order.id,
           profit,
           payment_method: paymentMethod as never,
           status: "concluida",
           notes: notes || null,
-          ...(saleDate && saleDate !== todayStr()
-            ? { created_at: new Date(`${saleDate}T12:00:00`).toISOString() }
-            : {}),
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .select()
         .single();
       if (error) throw error;
 
-      // 3. Itens
+      // 4. Itens de venda
       const { error: itemsErr } = await supabase.from("sale_items").insert(
         cart.map((c) => ({
           sale_id: sale.id,
@@ -483,10 +587,23 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         })),
       );
       if (itemsErr) throw itemsErr;
+
+      // 5. Importação (se houver código de rastreio)
+      if (trackingTrim) {
+        await linkOrderToImport({
+          storeId: profile.store_id,
+          trackingCode: trackingTrim,
+          supplierName: supplierTrim || null,
+          orderId: order.id,
+          orderNumber: (order as { order_number?: number | null }).order_number ?? null,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Venda registrada!");
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["customers-search"] });
@@ -494,6 +611,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -816,9 +934,59 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             )}
           </section>
 
-          {/* 3. PAGAMENTO */}
+          {/* 3. FORNECEDOR / ORIGEM */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">3. Forma de pagamento</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">3. Fornecedor</h3>
+            <Tabs value={source} onValueChange={(v) => setSource(v as SourceKey)}>
+              <TabsList className="grid w-full grid-cols-3">
+                {SOURCE_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="estoque" className="mt-3">
+                <p className="text-xs text-muted-foreground">
+                  O item será baixado automaticamente do seu estoque.
+                </p>
+              </TabsContent>
+              <TabsContent value="fornecedor_china" className="mt-3">
+                <Label>Nome do fornecedor</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Ex.: Yupoo XYZ, Weidian ABC..."
+                />
+              </TabsContent>
+              <TabsContent value="revendedor_br" className="mt-3">
+                <Label>Nome do revendedor</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Ex.: Loja parceira, grupo de revenda..."
+                />
+              </TabsContent>
+            </Tabs>
+
+            <div className="mt-3">
+              <Label>Código de rastreamento</Label>
+              <Input
+                value={trackingCode}
+                onChange={(e) => setTrackingCode(e.target.value)}
+                placeholder="Ex.: LP123456789CN"
+              />
+            </div>
+
+            <p className="mt-2 text-xs text-muted-foreground">
+              Você pode preencher isso depois. Vendas sem código de rastreamento vão para{" "}
+              <span className="font-medium">Pedidos Pendentes</span>. Se informado, o código é
+              vinculado automaticamente à página de Importações.
+            </p>
+          </section>
+
+          {/* 4. PAGAMENTO */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">4. Forma de pagamento</h3>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -829,9 +997,10 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             </Select>
           </section>
 
+
           {/* 4. FATURAMENTO */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">4. Dados de faturamento</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">5. Dados de faturamento</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Valor pago pelo cliente</Label>
@@ -896,3 +1065,203 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     </Dialog>
   );
 }
+
+/* ---------------- Edit Sale Sheet ---------------- */
+
+type SaleRow = {
+  id: string;
+  source: string | null;
+  supplier_name: string | null;
+  tracking_code: string | null;
+  payment_method: string;
+  total_value: number | string;
+  net_value: number | string | null;
+  notes: string | null;
+  order_id: string | null;
+  store_id: string;
+  customer_name_snapshot: string | null;
+  customer: { name: string } | null;
+};
+
+function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [src, setSrc] = useState<SourceKey>("estoque");
+  const [supplier, setSupplier] = useState("");
+  const [tracking, setTracking] = useState("");
+  const [payment, setPayment] = useState("pix");
+  const [paid, setPaid] = useState("");
+  const [net, setNet] = useState("");
+  const [obs, setObs] = useState("");
+
+  useEffect(() => {
+    if (!sale) return;
+    const s = (sale.source ?? "estoque") as string;
+    const normalized: SourceKey =
+      s === "drop" ? "fornecedor_china" :
+      s === "loja_parceira" ? "revendedor_br" :
+      (s as SourceKey);
+    setSrc(normalized);
+    setSupplier(sale.supplier_name ?? "");
+    setTracking(sale.tracking_code ?? "");
+    setPayment(sale.payment_method ?? "pix");
+    setPaid(String(sale.total_value ?? ""));
+    setNet(sale.net_value != null ? String(sale.net_value) : "");
+    setObs(sale.notes ?? "");
+  }, [sale]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!sale) return;
+      const trackingTrim = tracking.trim();
+      const supplierTrim = supplier.trim();
+      const paidValue = Number(paid) || 0;
+      const netValue = Number(net) || paidValue;
+
+      const { error } = await supabase
+        .from("sales")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          payment_method: payment,
+          total_value: paidValue,
+          net_value: netValue,
+          notes: obs || null,
+        } as never)
+        .eq("id", sale.id);
+      if (error) throw error;
+
+      // Propaga para o pedido vinculado
+      if (sale.order_id) {
+        const orderStatus: "pago" | "pendente" =
+          src === "estoque" || trackingTrim ? "pago" : "pendente";
+        await supabase
+          .from("orders")
+          .update({
+            source: src,
+            supplier_name: supplierTrim || null,
+            tracking_code: trackingTrim || null,
+            payment_method: payment,
+            total_value: paidValue,
+            notes: obs || null,
+            status: orderStatus,
+          } as never)
+          .eq("id", sale.order_id);
+
+        if (trackingTrim) {
+          const { data: ord } = await supabase
+            .from("orders")
+            .select("order_number")
+            .eq("id", sale.order_id)
+            .maybeSingle();
+          await linkOrderToImport({
+            storeId: sale.store_id,
+            trackingCode: trackingTrim,
+            supplierName: supplierTrim || null,
+            orderId: sale.order_id,
+            orderNumber: ord?.order_number ?? null,
+          });
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Venda atualizada");
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
+      onClose();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const open = !!sale;
+  if (!sale) {
+    return (
+      <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+        <SheetContent />
+      </Sheet>
+    );
+  }
+
+  const customerName = sale.customer?.name ?? sale.customer_name_snapshot ?? "—";
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="font-sora">Editar venda</SheetTitle>
+          <p className="text-xs text-muted-foreground">{customerName}</p>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-5">
+          <section>
+            <Label className="mb-1.5 block">Fornecedor</Label>
+            <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
+              <TabsList className="grid w-full grid-cols-3">
+                {SOURCE_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} className="text-xs">
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            {src !== "estoque" && (
+              <div className="mt-3">
+                <Label>Nome do {src === "fornecedor_china" ? "fornecedor" : "revendedor"}</Label>
+                <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              </div>
+            )}
+          </section>
+
+          <section>
+            <Label>Código de rastreamento</Label>
+            <Input
+              value={tracking}
+              onChange={(e) => setTracking(e.target.value)}
+              placeholder="Ex.: LP123456789CN"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ao preencher, o código é vinculado à página de Importações e o pedido sai de Pendentes.
+            </p>
+          </section>
+
+          <section className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Valor pago</Label>
+              <Input type="number" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
+            </div>
+            <div>
+              <Label>Líquido</Label>
+              <Input type="number" step="0.01" value={net} onChange={(e) => setNet(e.target.value)} />
+            </div>
+          </section>
+
+          <section>
+            <Label>Forma de pagamento</Label>
+            <Select value={payment} onValueChange={setPayment}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(paymentMethodLabel).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
+          <section>
+            <Label>Observações</Label>
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
+          </section>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
