@@ -222,27 +222,36 @@ function PedidosPage() {
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as DisplayStatus | "todos")}>
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
-          {STATUS_TABS.map((t) => {
-            const active = tab === t.value;
-            return (
-              <TabsTrigger
-                key={t.value}
-                value={t.value}
-                className="data-[state=active]:bg-[color:#2563EB15] data-[state=active]:text-[color:#2563EB] data-[state=active]:shadow-none rounded-md border border-transparent px-3 py-1.5"
-              >
-                {t.label}
-                <span
-                  className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${active ? "bg-[color:#2563EB] text-white" : "bg-muted text-muted-foreground"}`}
-                >
-                  {counts[t.value] ?? 0}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
+      <div className="space-y-3">
+        <FilterGroup
+          label="Financeiro"
+          options={FINANCE_TABS}
+          activeTab={tab}
+          counts={counts}
+          onChange={setTab}
+        />
+        <FilterGroup
+          label="Logística"
+          options={LOGISTICS_TABS}
+          activeTab={tab}
+          counts={counts}
+          onChange={setTab}
+        />
+        <div>
+          <button
+            type="button"
+            onClick={() => setTab("todos")}
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              tab === "todos"
+                ? "border-[color:#2563EB] bg-[color:#2563EB15] text-[color:#2563EB]"
+                : "border-border text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            Todos <span className="ml-1 opacity-70">({counts.todos ?? 0})</span>
+          </button>
+        </div>
+      </div>
+
 
       <Card>
         <CardContent className="p-4">
