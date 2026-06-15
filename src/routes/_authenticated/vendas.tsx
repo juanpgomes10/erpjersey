@@ -453,6 +453,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       return;
     }
 
+    const genderLabel = cfgGender === "masculina" ? "Masc." : cfgGender === "feminina" ? "Fem." : "Infantil";
     const personParts: string[] = [];
     if (cfgPersonalize) {
       if (cfgPersonName.trim()) personParts.push(`Nome: ${cfgPersonName.trim()}`);
