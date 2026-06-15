@@ -5,6 +5,8 @@ import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRig
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
+import { detectCarrier } from "@/lib/carrier";
+import { Textarea } from "@/components/ui/textarea";
 import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
