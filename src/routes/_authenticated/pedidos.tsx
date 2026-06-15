@@ -195,7 +195,7 @@ function PedidosPage() {
     const start = startOf(period);
     const q = search.trim().toLowerCase();
     return (orders ?? []).filter((o) => {
-      if (tab !== "todos" && o.status !== tab) return false;
+      if (tab !== "todos" && displayStatusOf(o) !== tab) return false;
       if (start && new Date(o.created_at) < start) return false;
       if (q) {
         const num = orderNum(o.order_number).toLowerCase();
