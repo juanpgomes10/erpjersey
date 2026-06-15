@@ -48,9 +48,11 @@ import { useProfile } from "@/hooks/use-profile";
 
 type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
+type DisplayStatus = OrderStatus | "envio_pendente";
 
-const STATUS_TABS: { value: OrderStatus | "todos"; label: string }[] = [
+const STATUS_TABS: { value: DisplayStatus | "todos"; label: string }[] = [
   { value: "todos", label: "Todos" },
+  { value: "envio_pendente", label: "Envio pendente" },
   { value: "pendente", label: "Pendentes" },
   { value: "pago", label: "Pagos" },
   { value: "enviado", label: "Enviados" },
@@ -58,23 +60,32 @@ const STATUS_TABS: { value: OrderStatus | "todos"; label: string }[] = [
   { value: "cancelado", label: "Cancelados" },
 ];
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
+const STATUS_LABEL: Record<DisplayStatus, string> = {
   pendente: "Pendente",
   pago: "Pago",
   enviado: "Enviado",
   entregue: "Entregue",
   cancelado: "Cancelado",
+  envio_pendente: "Envio pendente",
 };
 
-const STATUS_STYLE: Record<OrderStatus, { bg: string; fg: string }> = {
+const STATUS_STYLE: Record<DisplayStatus, { bg: string; fg: string }> = {
   pendente: { bg: "#D9770615", fg: "#D97706" },
   pago: { bg: "#16A34A15", fg: "#16A34A" },
   enviado: { bg: "#2563EB15", fg: "#2563EB" },
   entregue: { bg: "#16A34A15", fg: "#16A34A" },
   cancelado: { bg: "#DC262615", fg: "#DC2626" },
+  envio_pendente: { bg: "#9333EA15", fg: "#9333EA" },
 };
 
-function StatusBadge({ status }: { status: OrderStatus }) {
+function displayStatusOf(o: { status: OrderStatus; tracking_code: string | null; supplier_name: string | null }): DisplayStatus {
+  if ((o.status === "pendente" || o.status === "pago") && !o.tracking_code?.trim() && !o.supplier_name?.trim()) {
+    return "envio_pendente";
+  }
+  return o.status;
+}
+
+function StatusBadge({ status }: { status: DisplayStatus }) {
   const s = STATUS_STYLE[status];
   return (
     <span
@@ -124,7 +135,7 @@ export const Route = createFileRoute("/_authenticated/pedidos")({
 
 function PedidosPage() {
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<OrderStatus | "todos">("todos");
+  const [tab, setTab] = useState<DisplayStatus | "todos">("todos");
   const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "12meses">("todos");
   const [openNew, setOpenNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -146,10 +157,11 @@ function PedidosPage() {
   });
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { todos: 0, pendente: 0, pago: 0, enviado: 0, entregue: 0, cancelado: 0 };
+    const c: Record<string, number> = { todos: 0, pendente: 0, pago: 0, enviado: 0, entregue: 0, cancelado: 0, envio_pendente: 0 };
     (orders ?? []).forEach((o) => {
       c.todos++;
-      c[o.status] = (c[o.status] ?? 0) + 1;
+      const d = displayStatusOf(o);
+      c[d] = (c[d] ?? 0) + 1;
     });
     return c;
   }, [orders]);
@@ -183,7 +195,7 @@ function PedidosPage() {
     const start = startOf(period);
     const q = search.trim().toLowerCase();
     return (orders ?? []).filter((o) => {
-      if (tab !== "todos" && o.status !== tab) return false;
+      if (tab !== "todos" && displayStatusOf(o) !== tab) return false;
       if (start && new Date(o.created_at) < start) return false;
       if (q) {
         const num = orderNum(o.order_number).toLowerCase();
@@ -208,7 +220,7 @@ function PedidosPage() {
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as OrderStatus | "todos")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DisplayStatus | "todos")}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
           {STATUS_TABS.map((t) => {
             const active = tab === t.value;
@@ -305,7 +317,7 @@ function PedidosPage() {
                           <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
                           <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
                           <td className="px-3 py-3 text-muted-foreground">{paymentMethodLabel[o.payment_method] ?? o.payment_method}</td>
-                          <td className="px-3 py-3"><StatusBadge status={o.status} /></td>
+                          <td className="px-3 py-3"><StatusBadge status={displayStatusOf(o)} /></td>
                           <td className="px-3 py-3 text-muted-foreground">{fmtDate(o.created_at)}</td>
                           <td className="px-3 py-3 text-right text-muted-foreground"><ChevronRight className="ml-auto h-4 w-4" /></td>
                         </tr>
@@ -329,7 +341,7 @@ function PedidosPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular">{orderNum(o.order_number)}</span>
                           </div>
-                        <StatusBadge status={o.status} />
+                        <StatusBadge status={displayStatusOf(o)} />
                       </div>
                       <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
                       <p className="text-xs text-muted-foreground truncate">
@@ -509,7 +521,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 font-sora">
               Pedido {orderNum(order.order_number)}
-              <StatusBadge status={order.status} />
+              <StatusBadge status={displayStatusOf(order)} />
             </SheetTitle>
             <p className="text-xs text-muted-foreground">{fmtDateTime(order.created_at)}</p>
           </SheetHeader>
