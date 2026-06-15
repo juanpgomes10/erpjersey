@@ -118,7 +118,7 @@ function DashboardPage() {
           supabase
             .from("orders")
             .select(
-              "id, total_value, discount, status, payment_method, created_at, order_items(quantity, unit_price, product:products(name, cost_price))",
+              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product:products(name, cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
@@ -150,6 +150,7 @@ function DashboardPage() {
         id: string;
         total_value: number | string;
         discount: number | string;
+        shipping_cost: number | string | null;
         status: string;
         payment_method: string;
         created_at: string;
@@ -158,20 +159,33 @@ function DashboardPage() {
           unit_price: number | string;
           product: { name: string; cost_price: number | string | null } | null;
         }> | null;
+        sale: { net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null } | Array<{ net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null }> | null;
       }>;
       const prods = products.data ?? [];
 
-      const faturamento = orders.reduce(
-        (s, o) => s + Number(o.total_value) - Number(o.discount || 0),
-        0,
-      );
-      const lucro = orders.reduce((s, o) => {
-        const receita = Number(o.total_value) - Number(o.discount || 0);
-        const custo = (o.order_items ?? []).reduce(
+      const receitaDeOrder = (o: typeof orders[number]) => {
+        const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+        if (sale && sale.net_value != null) return Number(sale.net_value);
+        return Number(o.total_value) - Number(o.discount || 0);
+      };
+      const custoDeOrder = (o: typeof orders[number]) => {
+        const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+        const items = sale?.sale_items;
+        if (items && items.length > 0) {
+          return items.reduce((s, it) => s + Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0), 0);
+        }
+        return (o.order_items ?? []).reduce(
           (cs, it) => cs + Number(it.product?.cost_price ?? 0) * Number(it.quantity),
           0,
         );
-        return s + (receita - custo);
+      };
+      const freteDeOrder = (o: typeof orders[number]) => Number(o.shipping_cost ?? 0);
+
+      const faturamento = orders.reduce((s, o) => s + receitaDeOrder(o), 0);
+      const lucro = orders.reduce((s, o) => {
+        const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+        if (sale && sale.profit != null) return s + Number(sale.profit);
+        return s + (receitaDeOrder(o) - custoDeOrder(o) - freteDeOrder(o));
       }, 0);
 
       // Buckets do gráfico — diário se <= 31 dias, senão mensal
