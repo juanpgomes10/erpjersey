@@ -190,6 +190,10 @@ function FinanceiroPage() {
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
 
+  const freteCost = (txs ?? [])
+    .filter((t) => t.type === "saida" && t.category === "frete")
+    .reduce((s, t) => s + Number(t.value), 0);
+
   // Lucro por pedido (receita - custo dos itens)
   const lucroPedidos = useMemo(() => {
     let receita = 0;
