@@ -550,6 +550,10 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     onSuccess: () => {
       toast.success("Pedido excluído");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
       setConfirmDelete(false);
       onClose();
     },
