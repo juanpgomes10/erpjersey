@@ -934,9 +934,59 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             )}
           </section>
 
-          {/* 3. PAGAMENTO */}
+          {/* 3. FORNECEDOR / ORIGEM */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">3. Forma de pagamento</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">3. Fornecedor</h3>
+            <Tabs value={source} onValueChange={(v) => setSource(v as SourceKey)}>
+              <TabsList className="grid w-full grid-cols-3">
+                {SOURCE_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="estoque" className="mt-3">
+                <p className="text-xs text-muted-foreground">
+                  O item será baixado automaticamente do seu estoque.
+                </p>
+              </TabsContent>
+              <TabsContent value="fornecedor_china" className="mt-3">
+                <Label>Nome do fornecedor</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Ex.: Yupoo XYZ, Weidian ABC..."
+                />
+              </TabsContent>
+              <TabsContent value="revendedor_br" className="mt-3">
+                <Label>Nome do revendedor</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="Ex.: Loja parceira, grupo de revenda..."
+                />
+              </TabsContent>
+            </Tabs>
+
+            <div className="mt-3">
+              <Label>Código de rastreamento</Label>
+              <Input
+                value={trackingCode}
+                onChange={(e) => setTrackingCode(e.target.value)}
+                placeholder="Ex.: LP123456789CN"
+              />
+            </div>
+
+            <p className="mt-2 text-xs text-muted-foreground">
+              Você pode preencher isso depois. Vendas sem código de rastreamento vão para{" "}
+              <span className="font-medium">Pedidos Pendentes</span>. Se informado, o código é
+              vinculado automaticamente à página de Importações.
+            </p>
+          </section>
+
+          {/* 4. PAGAMENTO */}
+          <section>
+            <h3 className="font-sora text-sm font-semibold mb-2">4. Forma de pagamento</h3>
             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -946,6 +996,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               </SelectContent>
             </Select>
           </section>
+
 
           {/* 4. FATURAMENTO */}
           <section>
