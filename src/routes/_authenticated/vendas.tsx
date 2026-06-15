@@ -261,6 +261,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setNewCustomerName("");
       setNewCustomerPhone("");
       setNewCustomerNotes("");
+      setCustomerAddress("");
       setPaymentMethod("pix");
       setSource("estoque");
       setPaidValueStr("");
