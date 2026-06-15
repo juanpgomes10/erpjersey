@@ -524,10 +524,8 @@ function DashboardPage() {
             ) : (
               <ul className="space-y-3 text-sm">
                 {data!.lastSales.map((s) => {
-                  const name =
-                    (s.customer as { name: string } | null)?.name ??
-                    s.customer_name_snapshot ??
-                    "—";
+                  const name = s.customer?.name ?? "—";
+                  const total = Number(s.total_value) - Number(s.discount || 0);
                   return (
                     <li key={s.id} className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
@@ -535,7 +533,7 @@ function DashboardPage() {
                         <p className="text-xs text-muted-foreground">{fmtDate(s.created_at)}</p>
                       </div>
                       <span className="tabular text-[color:#16A34A]">
-                        {fmtBRL(Number(s.total_value))}
+                        {fmtBRL(total)}
                       </span>
                     </li>
                   );
