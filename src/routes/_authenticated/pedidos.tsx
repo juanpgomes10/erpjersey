@@ -427,7 +427,7 @@ function PedidosPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular">{orderNum(o.order_number)}</span>
                           </div>
-                        <StatusBadge status={displayStatusOf(o)} />
+                        <OrderStatusBadges o={o} />
                       </div>
                       <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
                       <p className="text-xs text-muted-foreground truncate">
