@@ -430,6 +430,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             name: newCustomerName.trim(),
             phone: newCustomerPhone.trim() || null,
             notes: newCustomerNotes.trim() || null,
+            address: customerAddress.trim() || null,
           })
           .select()
           .single();
@@ -438,6 +439,12 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         customerNameSnapshot = created.name;
       } else {
         customerNameSnapshot = customers?.find((c) => c.id === customerId)?.name ?? null;
+        if (customerId && customerAddress.trim()) {
+          await supabase
+            .from("customers")
+            .update({ address: customerAddress.trim() })
+            .eq("id", customerId);
+        }
       }
 
       // 2. Venda
