@@ -133,8 +133,9 @@ function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
+          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, supplier_name, tracking_code, store_id, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
         )
+
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
