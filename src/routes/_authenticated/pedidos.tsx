@@ -354,21 +354,113 @@ function PedidosPage() {
 
 /* ---------------- Detail Drawer ---------------- */
 
+type SourceKey = "estoque" | "fornecedor_china" | "revendedor_br";
+const ORDER_SOURCE_TABS: { value: SourceKey; label: string }[] = [
+  { value: "estoque", label: "Estoque da loja" },
+  { value: "fornecedor_china", label: "Fornecedor China" },
+  { value: "revendedor_br", label: "Revendedor BR" },
+];
+
 function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [src, setSrc] = useState<SourceKey>("estoque");
+  const [supplier, setSupplier] = useState("");
+  const [tracking, setTracking] = useState("");
+
+  useEffect(() => {
+    if (!order) return;
+    const s = (order.source ?? "estoque") as string;
+    const normalized: SourceKey =
+      s === "drop" ? "fornecedor_china" :
+      s === "loja_parceira" ? "revendedor_br" :
+      (["estoque", "fornecedor_china", "revendedor_br"].includes(s) ? (s as SourceKey) : "estoque");
+    setSrc(normalized);
+    setSupplier(order.supplier_name ?? "");
+    setTracking(order.tracking_code ?? "");
+  }, [order]);
 
   const changeStatus = useMutation({
     mutationFn: async (status: OrderStatus) => {
       if (!order) return;
       const { error } = await supabase.from("orders").update({ status } as never).eq("id", order.id);
       if (error) throw error;
+      // Sincroniza venda vinculada
+      await supabase.from("sales").update({} as never).eq("order_id", order.id);
     },
     onSuccess: () => {
       toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const saveSupplier = useMutation({
+    mutationFn: async () => {
+      if (!order) return;
+      const trackingTrim = tracking.trim();
+      const supplierTrim = supplier.trim();
+      const newStatus: OrderStatus =
+        order.status === "pendente" && (src === "estoque" || trackingTrim) ? "pago" : order.status;
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          status: newStatus,
+        } as never)
+        .eq("id", order.id);
+      if (error) throw error;
+
+      await supabase
+        .from("sales")
+        .update({
+          source: src,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+        } as never)
+        .eq("order_id", order.id);
+
+      if (trackingTrim) {
+        const { data: existing } = await supabase
+          .from("imports")
+          .select("id, linked_order_ids, order_numbers")
+          .eq("tracking_code", trackingTrim)
+          .maybeSingle();
+        if (existing) {
+          const linked = Array.from(new Set([...(existing.linked_order_ids ?? []), order.id]));
+          const nums = Array.from(
+            new Set([...(existing.order_numbers ?? []), order.order_number].filter(Boolean) as number[]),
+          );
+          await supabase
+            .from("imports")
+            .update({ linked_order_ids: linked, order_numbers: nums } as never)
+            .eq("id", existing.id);
+        } else {
+          const guess = detectCarrier(trackingTrim);
+          await supabase.from("imports").insert({
+            store_id: order.store_id,
+            tracking_code: trackingTrim,
+            supplier: supplierTrim || null,
+            carrier: guess?.name ?? null,
+            country: guess?.country ?? null,
+            status: "comprado",
+            total_value: 0,
+            linked_order_ids: [order.id],
+            order_numbers: order.order_number ? [order.order_number] : [],
+          } as never);
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Pedido atualizado");
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
 
   const remove = useMutation({
@@ -385,6 +477,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
   });
+
 
   const open = !!order;
   if (!order) {
