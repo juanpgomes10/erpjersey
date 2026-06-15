@@ -462,6 +462,10 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     onSuccess: () => {
       toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
   });
