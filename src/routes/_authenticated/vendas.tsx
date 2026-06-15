@@ -215,6 +215,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [newCustomerNotes, setNewCustomerNotes] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
 
   // Pagamento e faturamento
   const [paymentMethod, setPaymentMethod] = useState<string>("pix");
