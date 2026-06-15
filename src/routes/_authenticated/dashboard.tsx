@@ -191,8 +191,7 @@ function DashboardPage() {
       // Buckets do gráfico — diário se <= 31 dias, senão mensal
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
       const chartDays: { label: string; total: number }[] = [];
-      const orderTotal = (o: typeof orders[number]) =>
-        Number(o.total_value) - Number(o.discount || 0);
+      const orderTotal = (o: typeof orders[number]) => receitaDeOrder(o);
       if (diffDays <= 31) {
         for (let i = 0; i < diffDays; i++) {
           const d = new Date(start);
