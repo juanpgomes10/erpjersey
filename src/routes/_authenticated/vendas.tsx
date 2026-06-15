@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Receipt, X, UserPlus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -31,14 +33,60 @@ import {
 import { useProfile } from "@/hooks/use-profile";
 
 type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+type SourceKey = "estoque" | "fornecedor_china" | "revendedor_br";
 
-const SOURCE_OPTIONS = [
+const SOURCE_TABS: { value: SourceKey; label: string }[] = [
   { value: "estoque", label: "Estoque da loja" },
-  { value: "drop", label: "Drop" },
-  { value: "loja_parceira", label: "Loja parceira / grupo" },
-] as const;
-const sourceLabel = (s: string) =>
-  SOURCE_OPTIONS.find((o) => o.value === s)?.label ?? s;
+  { value: "fornecedor_china", label: "Fornecedor China" },
+  { value: "revendedor_br", label: "Revendedor BR" },
+];
+
+const sourceLabel = (s: string) => {
+  if (s === "drop") return "Fornecedor China";
+  if (s === "loja_parceira") return "Revendedor BR";
+  const f = SOURCE_TABS.find((o) => o.value === s);
+  return f?.label ?? s;
+};
+
+// Helper para vincular pedido a uma importação (upsert)
+async function linkOrderToImport(opts: {
+  storeId: string;
+  trackingCode: string;
+  supplierName: string | null;
+  orderId: string;
+  orderNumber: number | null;
+}) {
+  const code = opts.trackingCode.trim();
+  if (!code) return;
+  const { data: existing } = await supabase
+    .from("imports")
+    .select("id, linked_order_ids, order_numbers")
+    .eq("tracking_code", code)
+    .maybeSingle();
+  if (existing) {
+    const linked = Array.from(new Set([...(existing.linked_order_ids ?? []), opts.orderId]));
+    const nums = Array.from(
+      new Set([...(existing.order_numbers ?? []), opts.orderNumber].filter(Boolean) as number[]),
+    );
+    await supabase
+      .from("imports")
+      .update({ linked_order_ids: linked, order_numbers: nums } as never)
+      .eq("id", existing.id);
+  } else {
+    const guess = detectCarrier(code);
+    await supabase.from("imports").insert({
+      store_id: opts.storeId,
+      tracking_code: code,
+      supplier: opts.supplierName,
+      carrier: guess?.name ?? null,
+      country: guess?.country ?? null,
+      status: "comprado",
+      total_value: 0,
+      linked_order_ids: [opts.orderId],
+      order_numbers: opts.orderNumber ? [opts.orderNumber] : [],
+    } as never);
+  }
+}
 
 export const Route = createFileRoute("/_authenticated/vendas")({
   head: () => ({ meta: [{ title: "Vendas — ERPJersey" }] }),
