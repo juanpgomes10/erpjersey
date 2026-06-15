@@ -265,6 +265,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [cfgGender, setCfgGender] = useState<"masculina" | "feminina" | "infantil">("masculina");
   const [cfgCostStr, setCfgCostStr] = useState("");
   const [cfgPriceStr, setCfgPriceStr] = useState("");
+  const [cfgPersonalize, setCfgPersonalize] = useState(false);
+  const [cfgPersonName, setCfgPersonName] = useState("");
+  const [cfgPersonNumber, setCfgPersonNumber] = useState("");
 
   // Cliente
   const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
