@@ -80,11 +80,28 @@ const STATUS_STYLE: Record<DisplayStatus, { bg: string; fg: string }> = {
   envio_pendente: { bg: "#9333EA15", fg: "#9333EA" },
 };
 
-function displayStatusOf(o: { status: OrderStatus; tracking_code: string | null; supplier_name: string | null }): DisplayStatus {
-  if ((o.status === "pendente" || o.status === "pago") && !o.tracking_code?.trim() && !o.supplier_name?.trim()) {
-    return "envio_pendente";
-  }
-  return o.status;
+type OrderLike = { status: OrderStatus; tracking_code: string | null; supplier_name: string | null };
+
+function financeStatusOf(o: OrderLike): "pago" | "pendente" | "cancelado" {
+  if (o.status === "cancelado") return "cancelado";
+  if (o.status === "pago" || o.status === "enviado" || o.status === "entregue") return "pago";
+  return "pendente";
+}
+
+function logisticsStatusOf(o: OrderLike): "envio_pendente" | "enviado" | "entregue" | null {
+  if (o.status === "cancelado") return null;
+  if (o.status === "entregue") return "entregue";
+  if (o.status === "enviado") return "enviado";
+  // pendente/pago: se não tem rastreio nem fornecedor → envio pendente
+  if (!o.tracking_code?.trim() && !o.supplier_name?.trim()) return "envio_pendente";
+  return "envio_pendente";
+}
+
+function displayStatusOf(o: OrderLike): DisplayStatus {
+  // mantido para compat (filtro único): combina ambos
+  const log = logisticsStatusOf(o);
+  if (log && log !== "envio_pendente") return log;
+  return financeStatusOf(o);
 }
 
 function StatusBadge({ status }: { status: DisplayStatus }) {
@@ -96,6 +113,17 @@ function StatusBadge({ status }: { status: DisplayStatus }) {
     >
       {STATUS_LABEL[status]}
     </span>
+  );
+}
+
+function OrderStatusBadges({ o }: { o: OrderLike }) {
+  const fin = financeStatusOf(o);
+  const log = logisticsStatusOf(o);
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <StatusBadge status={fin} />
+      {log && <StatusBadge status={log} />}
+    </div>
   );
 }
 
@@ -208,8 +236,9 @@ function PedidosPage() {
     const c: Record<string, number> = { todos: 0, pendente: 0, pago: 0, enviado: 0, entregue: 0, cancelado: 0, envio_pendente: 0 };
     (orders ?? []).forEach((o) => {
       c.todos++;
-      const d = displayStatusOf(o);
-      c[d] = (c[d] ?? 0) + 1;
+      c[financeStatusOf(o)] = (c[financeStatusOf(o)] ?? 0) + 1;
+      const log = logisticsStatusOf(o);
+      if (log) c[log] = (c[log] ?? 0) + 1;
     });
     return c;
   }, [orders]);
@@ -243,7 +272,7 @@ function PedidosPage() {
     const start = startOf(period);
     const q = search.trim().toLowerCase();
     return (orders ?? []).filter((o) => {
-      if (tab !== "todos" && displayStatusOf(o) !== tab) return false;
+      if (tab !== "todos" && financeStatusOf(o) !== tab && logisticsStatusOf(o) !== tab) return false;
       if (start && new Date(o.created_at) < start) return false;
       if (q) {
         const num = orderNum(o.order_number).toLowerCase();
@@ -374,7 +403,7 @@ function PedidosPage() {
                           <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
                           <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
                           <td className="px-3 py-3 text-muted-foreground">{paymentMethodLabel[o.payment_method] ?? o.payment_method}</td>
-                          <td className="px-3 py-3"><StatusBadge status={displayStatusOf(o)} /></td>
+                          <td className="px-3 py-3"><OrderStatusBadges o={o} /></td>
                           <td className="px-3 py-3 text-muted-foreground">{fmtDate(o.created_at)}</td>
                           <td className="px-3 py-3 text-right text-muted-foreground"><ChevronRight className="ml-auto h-4 w-4" /></td>
                         </tr>
@@ -398,7 +427,7 @@ function PedidosPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular">{orderNum(o.order_number)}</span>
                           </div>
-                        <StatusBadge status={displayStatusOf(o)} />
+                        <OrderStatusBadges o={o} />
                       </div>
                       <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
                       <p className="text-xs text-muted-foreground truncate">
@@ -589,7 +618,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 font-sora">
               Pedido {orderNum(order.order_number)}
-              <StatusBadge status={displayStatusOf(order)} />
+              <OrderStatusBadges o={order} />
             </SheetTitle>
             <p className="text-xs text-muted-foreground">{fmtDateTime(order.created_at)}</p>
           </SheetHeader>
