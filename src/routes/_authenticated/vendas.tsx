@@ -205,7 +205,7 @@ function VendasPage() {
       </Card>
 
       <NewSaleDialog open={open} onOpenChange={setOpen} />
-      <EditSaleSheet sale={editing} onClose={() => setEditId(null)} />
+      <EditSaleSheet sale={editing as unknown as SaleRow | null} onClose={() => setEditId(null)} />
     </div>
   );
 }
