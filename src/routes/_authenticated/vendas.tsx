@@ -605,6 +605,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["imports"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["customers-search"] });
       onOpenChange(false);
@@ -1169,6 +1171,9 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
       onClose();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),

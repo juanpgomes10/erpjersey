@@ -50,14 +50,16 @@ type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
 type DisplayStatus = OrderStatus | "envio_pendente";
 
-const STATUS_TABS: { value: DisplayStatus | "todos"; label: string }[] = [
-  { value: "todos", label: "Todos" },
+const FINANCE_TABS: { value: DisplayStatus; label: string }[] = [
+  { value: "pago", label: "Pago" },
+  { value: "pendente", label: "Pagamento pendente" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
+const LOGISTICS_TABS: { value: DisplayStatus; label: string }[] = [
   { value: "envio_pendente", label: "Envio pendente" },
-  { value: "pendente", label: "Pendentes" },
-  { value: "pago", label: "Pagos" },
-  { value: "enviado", label: "Enviados" },
-  { value: "entregue", label: "Entregues" },
-  { value: "cancelado", label: "Cancelados" },
+  { value: "enviado", label: "Enviado" },
+  { value: "entregue", label: "Entregue" },
 ];
 
 const STATUS_LABEL: Record<DisplayStatus, string> = {
@@ -94,6 +96,52 @@ function StatusBadge({ status }: { status: DisplayStatus }) {
     >
       {STATUS_LABEL[status]}
     </span>
+  );
+}
+
+function FilterGroup({
+  label,
+  options,
+  activeTab,
+  counts,
+  onChange,
+}: {
+  label: string;
+  options: { value: DisplayStatus; label: string }[];
+  activeTab: DisplayStatus | "todos";
+  counts: Record<string, number>;
+  onChange: (v: DisplayStatus | "todos") => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {options.map((t) => {
+          const active = activeTab === t.value;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => onChange(t.value)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "border-[color:#2563EB] bg-[color:#2563EB15] text-[color:#2563EB]"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {t.label}
+              <span
+                className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${active ? "bg-[color:#2563EB] text-white" : "bg-muted"}`}
+              >
+                {counts[t.value] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -220,27 +268,36 @@ function PedidosPage() {
         </Button>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as DisplayStatus | "todos")}>
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
-          {STATUS_TABS.map((t) => {
-            const active = tab === t.value;
-            return (
-              <TabsTrigger
-                key={t.value}
-                value={t.value}
-                className="data-[state=active]:bg-[color:#2563EB15] data-[state=active]:text-[color:#2563EB] data-[state=active]:shadow-none rounded-md border border-transparent px-3 py-1.5"
-              >
-                {t.label}
-                <span
-                  className={`ml-2 rounded px-1.5 py-0.5 text-[10px] ${active ? "bg-[color:#2563EB] text-white" : "bg-muted text-muted-foreground"}`}
-                >
-                  {counts[t.value] ?? 0}
-                </span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-      </Tabs>
+      <div className="space-y-3">
+        <FilterGroup
+          label="Financeiro"
+          options={FINANCE_TABS}
+          activeTab={tab}
+          counts={counts}
+          onChange={setTab}
+        />
+        <FilterGroup
+          label="Logística"
+          options={LOGISTICS_TABS}
+          activeTab={tab}
+          counts={counts}
+          onChange={setTab}
+        />
+        <div>
+          <button
+            type="button"
+            onClick={() => setTab("todos")}
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              tab === "todos"
+                ? "border-[color:#2563EB] bg-[color:#2563EB15] text-[color:#2563EB]"
+                : "border-border text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            Todos <span className="ml-1 opacity-70">({counts.todos ?? 0})</span>
+          </button>
+        </div>
+      </div>
+
 
       <Card>
         <CardContent className="p-4">
@@ -405,6 +462,10 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     onSuccess: () => {
       toast.success("Status atualizado");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
   });
@@ -473,6 +534,9 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
@@ -486,6 +550,10 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     onSuccess: () => {
       toast.success("Pedido excluído");
       qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
       setConfirmDelete(false);
       onClose();
     },
