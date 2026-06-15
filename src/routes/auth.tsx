@@ -119,12 +119,10 @@ function AuthPage() {
       {/* Lado direito */}
       <div className="flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-sm">
-          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
-            <LogoMark size={40} />
-            <span className="font-sora text-xl font-semibold">
-              <span style={{ color: "#2563EB" }}>ERP</span>Jersey
-            </span>
+          <div className="mb-8 flex items-center justify-center lg:hidden">
+            <Logo size={36} />
           </div>
+
 
           <Tabs value={mode} onValueChange={(v) => setMode(v as "login" | "signup")}>
             <TabsList className="grid w-full grid-cols-2">
