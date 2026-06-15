@@ -508,7 +508,49 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         }
       }
 
-      // 2. Venda
+      const createdAtIso =
+        saleDate && saleDate !== todayStr()
+          ? new Date(`${saleDate}T12:00:00`).toISOString()
+          : null;
+
+      // 2. Pedido (sempre criar — toda venda gera um pedido)
+      const trackingTrim = trackingCode.trim();
+      const supplierTrim = supplierName.trim();
+      const orderStatus: "pago" | "pendente" =
+        source === "estoque" || trackingTrim ? "pago" : "pendente";
+
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({
+          store_id: profile.store_id,
+          customer_id: finalCustomerId,
+          user_id: profile.id,
+          total_value: paidValue,
+          status: orderStatus,
+          payment_method: paymentMethod,
+          notes: notes || null,
+          source,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
+        } as never)
+        .select()
+        .single();
+      if (orderErr) throw orderErr;
+
+      const { error: orderItemsErr } = await supabase.from("order_items").insert(
+        cart.map((c) => ({
+          order_id: order.id,
+          product_id: c.productId,
+          product_name: c.productName,
+          size: c.size,
+          quantity: c.quantity,
+          unit_price: c.unitPrice,
+        })),
+      );
+      if (orderItemsErr) throw orderItemsErr;
+
+      // 3. Venda
       const { data: sale, error } = await supabase
         .from("sales")
         .insert({
@@ -519,19 +561,20 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           total_value: paidValue,
           net_value: netValue,
           source,
+          supplier_name: supplierTrim || null,
+          tracking_code: trackingTrim || null,
+          order_id: order.id,
           profit,
           payment_method: paymentMethod as never,
           status: "concluida",
           notes: notes || null,
-          ...(saleDate && saleDate !== todayStr()
-            ? { created_at: new Date(`${saleDate}T12:00:00`).toISOString() }
-            : {}),
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .select()
         .single();
       if (error) throw error;
 
-      // 3. Itens
+      // 4. Itens de venda
       const { error: itemsErr } = await supabase.from("sale_items").insert(
         cart.map((c) => ({
           sale_id: sale.id,
@@ -544,10 +587,23 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         })),
       );
       if (itemsErr) throw itemsErr;
+
+      // 5. Importação (se houver código de rastreio)
+      if (trackingTrim) {
+        await linkOrderToImport({
+          storeId: profile.store_id,
+          trackingCode: trackingTrim,
+          supplierName: supplierTrim || null,
+          orderId: order.id,
+          orderNumber: (order as { order_number?: number | null }).order_number ?? null,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Venda registrada!");
       qc.invalidateQueries({ queryKey: ["sales"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["imports"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["products"] });
       qc.invalidateQueries({ queryKey: ["customers-search"] });
@@ -555,6 +611,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
