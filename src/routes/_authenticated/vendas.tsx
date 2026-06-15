@@ -96,6 +96,7 @@ export const Route = createFileRoute("/_authenticated/vendas")({
 function VendasPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const { data: sales, isLoading } = useQuery({
     queryKey: ["sales"],
@@ -117,6 +118,8 @@ function VendasPage() {
     const productNames = (s.items as Array<{ product: { name: string } | null }>)?.map((i) => i.product?.name?.toLowerCase() ?? "").join(" ");
     return customerName.includes(q) || productNames.includes(q);
   });
+
+  const editing = (sales ?? []).find((s) => s.id === editId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -171,7 +174,11 @@ function VendasPage() {
                     const netValue = Number((s as unknown as { net_value?: number }).net_value ?? 0) || Number(s.total_value);
                     const sourceVal = (s as unknown as { source?: string }).source ?? "estoque";
                     return (
-                      <tr key={s.id} className="border-b border-border last:border-none hover:bg-accent/40">
+                      <tr
+                        key={s.id}
+                        onClick={() => setEditId(s.id)}
+                        className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
+                      >
                         <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
                         <td className="px-3 py-3 font-medium">{customer}</td>
                         <td className="px-3 py-3 text-muted-foreground">
@@ -198,6 +205,7 @@ function VendasPage() {
       </Card>
 
       <NewSaleDialog open={open} onOpenChange={setOpen} />
+      <EditSaleSheet sale={editing} onClose={() => setEditId(null)} />
     </div>
   );
 }
