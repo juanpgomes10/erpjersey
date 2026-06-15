@@ -8,6 +8,7 @@ import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { modelShortLabel } from "./estoque";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -178,6 +179,7 @@ type CustomerRow = {
   id: string;
   name: string;
   phone: string | null;
+  address: string | null;
 };
 
 function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -215,6 +217,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [newCustomerName, setNewCustomerName] = useState("");
   const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [newCustomerNotes, setNewCustomerNotes] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
 
   // Pagamento e faturamento
   const [paymentMethod, setPaymentMethod] = useState<string>("pix");
@@ -260,6 +263,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setNewCustomerName("");
       setNewCustomerPhone("");
       setNewCustomerNotes("");
+      setCustomerAddress("");
       setPaymentMethod("pix");
       setSource("estoque");
       setPaidValueStr("");
@@ -287,7 +291,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     queryFn: async () => {
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone")
+        .select("id, name, phone, address")
         .order("name")
         .limit(300);
       return (data ?? []) as CustomerRow[];
@@ -426,6 +430,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             name: newCustomerName.trim(),
             phone: newCustomerPhone.trim() || null,
             notes: newCustomerNotes.trim() || null,
+            address: customerAddress.trim() || null,
           })
           .select()
           .single();
@@ -434,6 +439,12 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         customerNameSnapshot = created.name;
       } else {
         customerNameSnapshot = customers?.find((c) => c.id === customerId)?.name ?? null;
+        if (customerId && customerAddress.trim()) {
+          await supabase
+            .from("customers")
+            .update({ address: customerAddress.trim() })
+            .eq("id", customerId);
+        }
       }
 
       // 2. Venda
@@ -539,7 +550,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                       <button
                         key={c.id}
                         type="button"
-                        onClick={() => setCustomerId(c.id)}
+                        onClick={() => { setCustomerId(c.id); setCustomerAddress(c.address ?? ""); }}
                         className={`flex w-full items-center justify-between border-b border-border p-3 text-left last:border-none hover:bg-accent ${customerId === c.id ? "bg-accent" : ""}`}
                       >
                         <div>
@@ -569,6 +580,15 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 </div>
               </TabsContent>
             </Tabs>
+            <div className="mt-3">
+              <Label>Endereço (opcional)</Label>
+              <Textarea
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                placeholder="Rua, número, complemento, bairro, cidade/UF, CEP"
+                rows={2}
+              />
+            </div>
           </section>
 
           {/* 2. PRODUTOS */}
