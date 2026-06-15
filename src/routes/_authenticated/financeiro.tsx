@@ -314,6 +314,22 @@ function FinanceiroPage() {
           loading={!orders}
         />
         <KpiCard
+          icon={<DollarSign className="h-4 w-4" />}
+          label="Custo dos pedidos"
+          value={fmtBRL(lucroPedidos.custo)}
+          sub="Custo de mercadoria vendida no período"
+          color="#DC2626"
+          loading={!orders}
+        />
+        <KpiCard
+          icon={<TrendingDown className="h-4 w-4" />}
+          label="Custo de frete dos pedidos"
+          value={fmtBRL(freteCost)}
+          sub="Lançamentos de despesa categoria Frete"
+          color="#DC2626"
+          loading={loadingTx}
+        />
+        <KpiCard
           icon={<Package className="h-4 w-4" />}
           label="Capital em estoque"
           value={fmtBRL(stockValue?.cost ?? 0)}
