@@ -167,14 +167,16 @@ function FinanceiroPage() {
     },
   });
 
-  // Pedidos no período (para lucro)
+  // Pedidos no período (para receita / custo / lucro / frete) — fonte única alinhada ao Dashboard
   const { data: orders } = useQuery({
     queryKey: ["fin-orders", storeId, period],
     enabled: !!storeId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status, total_value, discount, created_at, paid_at, order_items(quantity, unit_price, product_id, products(cost_price))")
+        .select(
+          "id, status, total_value, discount, shipping_cost, created_at, paid_at, order_items(quantity, unit_price, product_id, products(cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
+        )
         .eq("store_id", storeId!)
         .gte("created_at", sinceISO);
       if (error) throw error;
@@ -190,24 +192,36 @@ function FinanceiroPage() {
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
 
-  const freteCost = (txs ?? [])
-    .filter((t) => t.type === "saida" && t.category === "frete")
-    .reduce((s, t) => s + Number(t.value), 0);
-
-  // Lucro por pedido (receita - custo dos itens)
+  // Receita / custo / frete / lucro a partir dos pedidos (fonte única)
   const lucroPedidos = useMemo(() => {
     let receita = 0;
     let custo = 0;
+    let frete = 0;
     (orders ?? []).forEach((o: any) => {
       if (o.status === "cancelado") return;
-      receita += Number(o.total_value ?? 0) - Number(o.discount ?? 0);
-      (o.order_items ?? []).forEach((it: any) => {
-        const c = Number(it.products?.cost_price ?? 0);
-        custo += c * Number(it.quantity ?? 0);
-      });
+      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+      const rawReceita = Number(o.total_value ?? 0) - Number(o.discount ?? 0);
+      const receitaRow = sale && sale.net_value != null ? Number(sale.net_value) : rawReceita;
+      receita += receitaRow;
+
+      let custoItens = 0;
+      const saleItems: any[] | undefined = sale?.sale_items;
+      if (saleItems && saleItems.length > 0) {
+        saleItems.forEach((it) => {
+          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+        });
+      } else {
+        (o.order_items ?? []).forEach((it: any) => {
+          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
+        });
+      }
+      custo += custoItens;
+      frete += Number(o.shipping_cost ?? 0);
     });
-    return { receita, custo, lucro: receita - custo };
+    return { receita, custo, frete, lucro: receita - custo - frete };
   }, [orders]);
+
+  const freteCost = lucroPedidos.frete;
 
   // Série temporal: entradas vs saídas por dia
   const seriesDaily = useMemo(() => {
