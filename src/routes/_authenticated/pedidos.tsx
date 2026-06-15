@@ -48,9 +48,11 @@ import { useProfile } from "@/hooks/use-profile";
 
 type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
+type DisplayStatus = OrderStatus | "envio_pendente";
 
-const STATUS_TABS: { value: OrderStatus | "todos"; label: string }[] = [
+const STATUS_TABS: { value: DisplayStatus | "todos"; label: string }[] = [
   { value: "todos", label: "Todos" },
+  { value: "envio_pendente", label: "Envio pendente" },
   { value: "pendente", label: "Pendentes" },
   { value: "pago", label: "Pagos" },
   { value: "enviado", label: "Enviados" },
@@ -58,23 +60,32 @@ const STATUS_TABS: { value: OrderStatus | "todos"; label: string }[] = [
   { value: "cancelado", label: "Cancelados" },
 ];
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
+const STATUS_LABEL: Record<DisplayStatus, string> = {
   pendente: "Pendente",
   pago: "Pago",
   enviado: "Enviado",
   entregue: "Entregue",
   cancelado: "Cancelado",
+  envio_pendente: "Envio pendente",
 };
 
-const STATUS_STYLE: Record<OrderStatus, { bg: string; fg: string }> = {
+const STATUS_STYLE: Record<DisplayStatus, { bg: string; fg: string }> = {
   pendente: { bg: "#D9770615", fg: "#D97706" },
   pago: { bg: "#16A34A15", fg: "#16A34A" },
   enviado: { bg: "#2563EB15", fg: "#2563EB" },
   entregue: { bg: "#16A34A15", fg: "#16A34A" },
   cancelado: { bg: "#DC262615", fg: "#DC2626" },
+  envio_pendente: { bg: "#9333EA15", fg: "#9333EA" },
 };
 
-function StatusBadge({ status }: { status: OrderStatus }) {
+function displayStatusOf(o: { status: OrderStatus; tracking_code: string | null; supplier_name: string | null }): DisplayStatus {
+  if ((o.status === "pendente" || o.status === "pago") && !o.tracking_code?.trim() && !o.supplier_name?.trim()) {
+    return "envio_pendente";
+  }
+  return o.status;
+}
+
+function StatusBadge({ status }: { status: DisplayStatus }) {
   const s = STATUS_STYLE[status];
   return (
     <span
