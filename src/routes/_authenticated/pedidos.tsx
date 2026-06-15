@@ -236,8 +236,9 @@ function PedidosPage() {
     const c: Record<string, number> = { todos: 0, pendente: 0, pago: 0, enviado: 0, entregue: 0, cancelado: 0, envio_pendente: 0 };
     (orders ?? []).forEach((o) => {
       c.todos++;
-      const d = displayStatusOf(o);
-      c[d] = (c[d] ?? 0) + 1;
+      c[financeStatusOf(o)] = (c[financeStatusOf(o)] ?? 0) + 1;
+      const log = logisticsStatusOf(o);
+      if (log) c[log] = (c[log] ?? 0) + 1;
     });
     return c;
   }, [orders]);
