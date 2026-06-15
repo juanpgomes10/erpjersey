@@ -289,7 +289,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     queryFn: async () => {
       const { data } = await supabase
         .from("customers")
-        .select("id, name, phone")
+        .select("id, name, phone, address")
         .order("name")
         .limit(300);
       return (data ?? []) as CustomerRow[];
