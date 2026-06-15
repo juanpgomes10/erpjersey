@@ -1171,6 +1171,9 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["orders"] });
       qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["fin-tx"] });
+      qc.invalidateQueries({ queryKey: ["fin-orders"] });
       onClose();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
