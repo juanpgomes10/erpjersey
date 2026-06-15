@@ -178,6 +178,7 @@ type CustomerRow = {
   id: string;
   name: string;
   phone: string | null;
+  address: string | null;
 };
 
 function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
