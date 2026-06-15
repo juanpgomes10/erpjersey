@@ -113,16 +113,16 @@ function DashboardPage() {
       const endIso = end.toISOString();
       const now = new Date();
 
-      const [salesRange, products, customers, orders, importsAll, lastSales] =
+      const [ordersRange, products, customers, pendingOrders, importsAll, lastOrders] =
         await Promise.all([
           supabase
-            .from("sales")
+            .from("orders")
             .select(
-              "id, total_value, profit, payment_method, created_at, sale_items(quantity, unit_price, product:products(name))",
+              "id, total_value, discount, status, payment_method, created_at, order_items(quantity, unit_price, product:products(name, cost_price))",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
-            .eq("status", "concluida"),
+            .neq("status", "cancelado"),
           supabase
             .from("products")
             .select("id, name, sale_price, product_sizes(quantity, size)"),
@@ -135,35 +135,58 @@ function DashboardPage() {
             .from("imports")
             .select("id, status, supplier, country, total_value, customs_fee, created_at, updated_at"),
           supabase
-            .from("sales")
+            .from("orders")
             .select(
-              "id, total_value, payment_method, created_at, customer_name_snapshot, customer:customers(name)",
+              "id, order_number, total_value, discount, payment_method, created_at, customer:customers(name)",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
+            .neq("status", "cancelado")
             .order("created_at", { ascending: false })
             .limit(5),
         ]);
 
-
-
-      const sales = salesRange.data ?? [];
+      const orders = (ordersRange.data ?? []) as Array<{
+        id: string;
+        total_value: number | string;
+        discount: number | string;
+        status: string;
+        payment_method: string;
+        created_at: string;
+        order_items: Array<{
+          quantity: number;
+          unit_price: number | string;
+          product: { name: string; cost_price: number | string | null } | null;
+        }> | null;
+      }>;
       const prods = products.data ?? [];
 
-      const faturamento = sales.reduce((s, v) => s + Number(v.total_value), 0);
-      const lucro = sales.reduce((s, v) => s + Number(v.profit), 0);
+      const faturamento = orders.reduce(
+        (s, o) => s + Number(o.total_value) - Number(o.discount || 0),
+        0,
+      );
+      const lucro = orders.reduce((s, o) => {
+        const receita = Number(o.total_value) - Number(o.discount || 0);
+        const custo = (o.order_items ?? []).reduce(
+          (cs, it) => cs + Number(it.product?.cost_price ?? 0) * Number(it.quantity),
+          0,
+        );
+        return s + (receita - custo);
+      }, 0);
 
       // Buckets do gráfico — diário se <= 31 dias, senão mensal
       const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
       const chartDays: { label: string; total: number }[] = [];
+      const orderTotal = (o: typeof orders[number]) =>
+        Number(o.total_value) - Number(o.discount || 0);
       if (diffDays <= 31) {
         for (let i = 0; i < diffDays; i++) {
           const d = new Date(start);
           d.setDate(d.getDate() + i);
           const ds = d.toISOString().slice(0, 10);
-          const total = sales
-            .filter((s) => s.created_at.slice(0, 10) === ds)
-            .reduce((sum, v) => sum + Number(v.total_value), 0);
+          const total = orders
+            .filter((o) => o.created_at.slice(0, 10) === ds)
+            .reduce((sum, o) => sum + orderTotal(o), 0);
           chartDays.push({
             label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
             total,
@@ -176,10 +199,10 @@ function DashboardPage() {
           months.set(`${cursor.getFullYear()}-${cursor.getMonth()}`, 0);
           cursor.setMonth(cursor.getMonth() + 1);
         }
-        sales.forEach((s) => {
-          const d = new Date(s.created_at);
+        orders.forEach((o) => {
+          const d = new Date(o.created_at);
           const k = `${d.getFullYear()}-${d.getMonth()}`;
-          if (months.has(k)) months.set(k, months.get(k)! + Number(s.total_value));
+          if (months.has(k)) months.set(k, months.get(k)! + orderTotal(o));
         });
         months.forEach((total, k) => {
           const [y, m] = k.split("-").map(Number);
@@ -192,22 +215,21 @@ function DashboardPage() {
       }
 
       const byMethod = new Map<string, number>();
-      sales.forEach((s) => {
-        byMethod.set(s.payment_method, (byMethod.get(s.payment_method) ?? 0) + 1);
+      orders.forEach((o) => {
+        byMethod.set(o.payment_method, (byMethod.get(o.payment_method) ?? 0) + 1);
       });
       const chartMethods = Array.from(byMethod, ([k, v]) => ({
         name: paymentMethodLabel[k] ?? k,
         value: v,
       }));
 
-
       const topMap = new Map<string, { qty: number; total: number }>();
-      sales.forEach((s) => {
-        (s.sale_items ?? []).forEach((it) => {
-          const name = (it.product as { name: string } | null)?.name ?? "—";
+      orders.forEach((o) => {
+        (o.order_items ?? []).forEach((it) => {
+          const name = it.product?.name ?? "—";
           const c = topMap.get(name) ?? { qty: 0, total: 0 };
-          c.qty += it.quantity;
-          c.total += Number(it.unit_price) * it.quantity;
+          c.qty += Number(it.quantity);
+          c.total += Number(it.unit_price) * Number(it.quantity);
           topMap.set(name, c);
         });
       });
