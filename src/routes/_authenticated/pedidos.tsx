@@ -507,7 +507,11 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       const trackingTrim = tracking.trim();
       const supplierTrim = supplier.trim();
       const newStatus: OrderStatus =
-        order.status === "pendente" && (src === "estoque" || trackingTrim) ? "pago" : order.status;
+        trackingTrim && order.status !== "entregue" && order.status !== "cancelado"
+          ? "enviado"
+          : order.status === "pendente" && src === "estoque"
+            ? "pago"
+            : order.status;
       const createdAtIso = createdAt
         ? new Date(`${createdAt}T12:00:00`).toISOString()
         : null;

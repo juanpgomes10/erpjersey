@@ -529,8 +529,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       // 2. Pedido (sempre criar — toda venda gera um pedido)
       const trackingTrim = trackingCode.trim();
       const supplierTrim = supplierName.trim();
-      const orderStatus: "pago" | "pendente" =
-        source === "estoque" || trackingTrim ? "pago" : "pendente";
+      const orderStatus: "pago" | "pendente" | "enviado" =
+        trackingTrim ? "enviado" : source === "estoque" ? "pago" : "pendente";
 
       const { data: order, error: orderErr } = await supabase
         .from("orders")
@@ -1194,8 +1194,8 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
 
       // Propaga para o pedido vinculado
       if (sale.order_id) {
-        const orderStatus: "pago" | "pendente" =
-          src === "estoque" || trackingTrim ? "pago" : "pendente";
+        const orderStatus: "pago" | "pendente" | "enviado" =
+          trackingTrim ? "enviado" : src === "estoque" ? "pago" : "pendente";
         await supabase
           .from("orders")
           .update({
