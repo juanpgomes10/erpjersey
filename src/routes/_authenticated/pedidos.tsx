@@ -762,7 +762,21 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
               <Label>
                 Status atual do pedido <span className="text-[color:#DC2626]">*</span>
               </Label>
-              <Select value={order.status} onValueChange={(v) => changeStatus.mutate(v as OrderStatus)}>
+              <Select
+                value={uiStatus}
+                onValueChange={(v) => {
+                  setUiStatus(v);
+                  const dbStatus: OrderStatus = v === "aguardando_retirada" ? "enviado" : (v as OrderStatus);
+                  if (typeof window !== "undefined") {
+                    if (v === "aguardando_retirada") {
+                      localStorage.setItem(`order_ui_status:${order.id}`, "aguardando_retirada");
+                    } else {
+                      localStorage.removeItem(`order_ui_status:${order.id}`);
+                    }
+                  }
+                  changeStatus.mutate(dbStatus);
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pendente">Aguardando fazer pedido com fornecedor</SelectItem>
