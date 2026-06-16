@@ -77,10 +77,27 @@ async function callTrack17(endpoint: string, body: unknown, apiKey: string) {
   return res.json();
 }
 
+function isAuthorized(request: Request): boolean {
+  const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!expected) return false;
+  const apikey = request.headers.get("apikey");
+  const auth = request.headers.get("authorization");
+  const bearer = auth?.toLowerCase().startsWith("bearer ")
+    ? auth.slice(7).trim()
+    : null;
+  return apikey === expected || bearer === expected;
+}
+
 export const Route = createFileRoute("/api/public/hooks/refresh-trackings")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        if (!isAuthorized(request)) {
+          return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         try {
           const apiKey = getApiKey();
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -192,15 +209,20 @@ export const Route = createFileRoute("/api/public/hooks/refresh-trackings")({
             { headers: { "Content-Type": "application/json" } },
           );
         } catch (e) {
-          const msg = e instanceof Error ? e.message : "Erro desconhecido";
-          return new Response(JSON.stringify({ ok: false, error: msg }), {
+          console.error("[refresh-trackings] erro:", e);
+          return new Response(JSON.stringify({ ok: false, error: "Internal error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
           });
         }
       },
-      GET: async () => {
-        // Permite health-check manual
+      GET: async ({ request }) => {
+        if (!isAuthorized(request)) {
+          return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify({ ok: true, hint: "use POST para executar" }), {
           headers: { "Content-Type": "application/json" },
         });
