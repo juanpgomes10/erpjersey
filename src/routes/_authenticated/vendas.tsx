@@ -667,9 +667,25 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             <h3 className="font-sora text-sm font-semibold mb-2">1. Cliente</h3>
             <Tabs value={customerMode} onValueChange={(v) => setCustomerMode(v as "cadastrado" | "novo")}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="cadastrado"><UserCheck className="mr-2 h-4 w-4" /> Cliente cadastrado</TabsTrigger>
                 <TabsTrigger value="novo"><UserPlus className="mr-2 h-4 w-4" /> Cliente novo</TabsTrigger>
+                <TabsTrigger value="cadastrado"><UserCheck className="mr-2 h-4 w-4" /> Cliente cadastrado</TabsTrigger>
               </TabsList>
+              <TabsContent value="novo" className="mt-3 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Nome*</Label>
+                    <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Nome completo" />
+                  </div>
+                  <div>
+                    <Label>Telefone</Label>
+                    <Input value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                  </div>
+                </div>
+                <div>
+                  <Label>Informações adicionais</Label>
+                  <Input value={newCustomerNotes} onChange={(e) => setNewCustomerNotes(e.target.value)} placeholder="Instagram, cidade, observações..." />
+                </div>
+              </TabsContent>
               <TabsContent value="cadastrado" className="mt-3 space-y-2">
                 <Input
                   placeholder="Buscar por nome ou telefone..."
@@ -695,22 +711,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                       </button>
                     ))
                   )}
-                </div>
-              </TabsContent>
-              <TabsContent value="novo" className="mt-3 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Nome*</Label>
-                    <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Nome completo" />
-                  </div>
-                  <div>
-                    <Label>Telefone</Label>
-                    <Input value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} placeholder="(00) 00000-0000" />
-                  </div>
-                </div>
-                <div>
-                  <Label>Informações adicionais</Label>
-                  <Input value={newCustomerNotes} onChange={(e) => setNewCustomerNotes(e.target.value)} placeholder="Instagram, cidade, observações..." />
                 </div>
               </TabsContent>
             </Tabs>
