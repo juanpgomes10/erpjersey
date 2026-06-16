@@ -821,7 +821,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
 /* ---------------- New Order Wizard ---------------- */
 
 type CartItem = {
-  productId: string;
+  productId: string | null;
   productName: string;
   team: string | null;
   size: SizeOpt;
@@ -835,20 +835,8 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const { data: profile } = useProfile();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1
-  const [productSearch, setProductSearch] = useState("");
-  const productSearchRef = useRef<HTMLInputElement>(null);
-  type ProductLite = {
-    id: string;
-    name: string;
-    team: string | null;
-    season: string | null;
-    model: string | null;
-    sale_price: number | string;
-    product_sizes?: Array<{ size: string; quantity: number }>;
-  };
-  const [selected, setSelected] = useState<ProductLite | null>(null);
-  const [cfgSize, setCfgSize] = useState<SizeOpt | null>(null);
+  // Step 1 — cascata "cria na hora"
+  const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgQty, setCfgQty] = useState(1);
   const [cfgPriceStr, setCfgPriceStr] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -872,9 +860,7 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   useEffect(() => {
     if (!open) {
       setStep(1);
-      setProductSearch("");
-      setSelected(null);
-      setCfgSize(null);
+      setCascade(emptyCascadeValue());
       setCfgQty(1);
       setCfgPriceStr("");
       setCart([]);
@@ -890,18 +876,6 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     }
   }, [open]);
 
-  const { data: products } = useQuery({
-    queryKey: ["products-search"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, model, team, season, sale_price, product_sizes(size, quantity)")
-        .limit(300);
-      return (data ?? []) as ProductLite[];
-    },
-    enabled: open,
-  });
-
   const { data: customers } = useQuery({
     queryKey: ["customers-search"],
     queryFn: async () => {
@@ -911,53 +885,48 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     enabled: open,
   });
 
-  const filteredProducts = (products ?? []).filter((p) => {
-    if (!productSearch) return false;
-    const q = productSearch.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.team ?? "").toLowerCase().includes(q) ||
-      (p.season ?? "").toLowerCase().includes(q) ||
-      (p.model ?? "").toLowerCase().includes(q)
-    );
-  });
-
   const filteredCustomers = (customers ?? []).filter((c) => {
     if (!customerSearch) return true;
     const q = customerSearch.toLowerCase();
     return c.name.toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q);
   });
 
-  const selectProduct = (p: ProductLite) => {
-    setSelected(p);
-    setCfgSize(null);
-    setCfgQty(1);
-    setCfgPriceStr(Number(p.sale_price) > 0 ? String(p.sale_price) : "");
-  };
-
   const addToCart = () => {
-    if (!selected) return;
-    if (!cfgSize) { toast.error("Selecione o tamanho"); return; }
+    if (!cascade.team) { toast.error("Selecione o time / seleção"); return; }
+    if (!cascade.productType) { toast.error("Selecione o tipo de produto"); return; }
+    if (!cascade.model) { toast.error("Selecione o modelo"); return; }
+    if (cascade.model === "edicao_especial" && !cascade.specialEdition.trim()) {
+      toast.error("Informe qual edição especial"); return;
+    }
+    if (!cascade.size) { toast.error("Selecione o tamanho"); return; }
     if (cfgQty < 1) { toast.error("Quantidade inválida"); return; }
     const price = Number(cfgPriceStr) || 0;
     if (price <= 0) { toast.error("Informe o preço"); return; }
-    const label = `${selected.team ?? selected.name}${selected.model ? ` ${modelShortLabel(selected.model)}` : ""}${selected.season ? ` ${selected.season}` : ""}`;
+
+    const label = buildProductLabel({
+      team: cascade.team,
+      season: cascade.season,
+      productType: cascade.productType,
+      model: cascade.model,
+      specialEdition: cascade.specialEdition,
+      gender: cascade.gender,
+    });
+
     setCart((prev) => [...prev, {
-      productId: selected.id,
+      productId: null,
       productName: label,
-      team: selected.team,
-      size: cfgSize,
+      team: cascade.team,
+      size: cascade.size as SizeOpt,
       quantity: cfgQty,
       unitPrice: price,
       stock: 0,
     }]);
 
-    setSelected(null);
-    setCfgSize(null);
+    setCascade(emptyCascadeValue());
     setCfgQty(1);
     setCfgPriceStr("");
-    setProductSearch("");
-    setTimeout(() => productSearchRef.current?.focus(), 0);
+  };
+
   };
 
   const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
