@@ -486,17 +486,69 @@ const ORDER_SOURCE_TABS: { value: SourceKey; label: string }[] = [
   { value: "revendedor_br", label: "Revendedor BR" },
 ];
 
+type EditItem = {
+  id: string;            // existing order_items id, or "new-<n>"
+  product_id: string | null;
+  product_name: string;
+  size: SizeOpt | null;
+  quantity: number;
+  unit_price: number;
+  removed?: boolean;
+};
+
 function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Customer
+  const [custName, setCustName] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [custInstagram, setCustInstagram] = useState("");
+
+  // Items
+  const [items, setItems] = useState<EditItem[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newCascade, setNewCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
+  const [newQty, setNewQty] = useState(1);
+  const [newPriceStr, setNewPriceStr] = useState("");
+
+  // Finance
+  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [discountStr, setDiscountStr] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // Logistics / status
   const [src, setSrc] = useState<SourceKey>("estoque");
   const [supplier, setSupplier] = useState("");
   const [tracking, setTracking] = useState("");
   const [createdAt, setCreatedAt] = useState("");
-  const [uiStatus, setUiStatus] = useState<string>("pendente");
+  const [uiStatus, setUiStatus] = useState<string>("aguardando_fornecedor");
 
   useEffect(() => {
     if (!order) return;
+    setCustName(order.customer?.name ?? "");
+    setCustPhone(order.customer?.phone ?? "");
+    setCustInstagram(order.customer?.instagram ?? "");
+
+    setItems(
+      order.items.map((it) => ({
+        id: it.id,
+        product_id: it.product?.id ?? null,
+        product_name: it.product?.name ?? it.product_name ?? "Produto",
+        size: (it.size as SizeOpt) ?? null,
+        quantity: it.quantity,
+        unit_price: Number(it.unit_price),
+      })),
+    );
+    setShowAdd(false);
+    setNewCascade(emptyCascadeValue());
+    setNewQty(1);
+    setNewPriceStr("");
+
+    setPaymentMethod(order.payment_method ?? "pix");
+    setDiscountStr(order.discount ? String(order.discount) : "");
+    setNotes(order.notes ?? "");
+
     const s = (order.source ?? "estoque") as string;
     const normalized: SourceKey =
       s === "drop" ? "fornecedor_china" :
@@ -506,70 +558,132 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     setSupplier(order.supplier_name ?? "");
     setTracking(order.tracking_code ?? "");
     setCreatedAt(order.created_at ? String(order.created_at).slice(0, 10) : "");
-    const stored = typeof window !== "undefined" ? localStorage.getItem(`order_ui_status:${order.id}`) : null;
-    if (stored === "aguardando_retirada" && order.status === "enviado") {
-      setUiStatus("aguardando_retirada");
+
+    const fStatus = order.fulfillment_status;
+    if (fStatus) {
+      setUiStatus(fStatus);
     } else {
-      setUiStatus(order.status);
+      const stored = typeof window !== "undefined" ? localStorage.getItem(`order_ui_status:${order.id}`) : null;
+      if (stored === "aguardando_retirada" && order.status === "enviado") {
+        setUiStatus("aguardando_retirada");
+      } else if (order.status === "pendente") {
+        setUiStatus("aguardando_fornecedor");
+      } else if (order.status === "pago") {
+        setUiStatus("aguardando_envio_fornecedor");
+      } else {
+        setUiStatus(order.status);
+      }
     }
   }, [order]);
 
-  const changeStatus = useMutation({
-    mutationFn: async (status: OrderStatus) => {
-      if (!order) return;
-      const { error } = await supabase.from("orders").update({ status } as never).eq("id", order.id);
-      if (error) throw error;
-      // Sincroniza venda vinculada
-      await supabase.from("sales").update({} as never).eq("order_id", order.id);
-    },
-    onSuccess: () => {
-      toast.success("Status atualizado");
-      qc.invalidateQueries({ queryKey: ["orders"] });
-      qc.invalidateQueries({ queryKey: ["sales"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["fin-tx"] });
-      qc.invalidateQueries({ queryKey: ["fin-orders"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
-  });
+  const visibleItems = items.filter((i) => !i.removed);
+  const subtotalCalc = visibleItems.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const discountNum = Number(discountStr) || 0;
+  const totalCalc = Math.max(subtotalCalc - discountNum, 0);
 
-  const saveSupplier = useMutation({
+  function fulfillmentToDb(v: string): { status: OrderStatus; fulfillment_status: string | null } {
+    const map: Record<string, OrderStatus> = {
+      aguardando_fornecedor: "pendente",
+      aguardando_envio_fornecedor: "pago",
+      enviado: "enviado",
+      aguardando_retirada: "enviado",
+      entregue: "entregue",
+      pendente: "pendente",
+      pago: "pago",
+      cancelado: "cancelado",
+    };
+    const fulfillmentSet = ["aguardando_fornecedor","aguardando_envio_fornecedor","enviado","aguardando_retirada","entregue"];
+    return {
+      status: map[v] ?? "pendente",
+      fulfillment_status: fulfillmentSet.includes(v) ? v : null,
+    };
+  }
+
+  const saveAll = useMutation({
     mutationFn: async () => {
       if (!order) return;
+      if (!custName.trim()) throw new Error("Nome do cliente é obrigatório");
+      if (visibleItems.length === 0) throw new Error("O pedido precisa ter ao menos um item");
+
+      // 1. Cliente
+      if (order.customer?.id) {
+        const { error: cErr } = await supabase
+          .from("customers")
+          .update({
+            name: custName.trim(),
+            phone: custPhone.trim() || null,
+            instagram: custInstagram.trim() || null,
+          } as never)
+          .eq("id", order.customer.id);
+        if (cErr) throw cErr;
+      }
+
+      // 2. Itens — update/delete/insert
+      for (const it of items) {
+        if (it.removed && !it.id.startsWith("new-")) {
+          await supabase.from("order_items").delete().eq("id", it.id);
+        } else if (it.id.startsWith("new-") && !it.removed) {
+          await supabase.from("order_items").insert({
+            order_id: order.id,
+            product_id: it.product_id,
+            product_name: it.product_name,
+            size: it.size,
+            quantity: it.quantity,
+            unit_price: it.unit_price,
+          } as never);
+        } else if (!it.removed) {
+          await supabase
+            .from("order_items")
+            .update({
+              product_name: it.product_name,
+              size: it.size,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+            } as never)
+            .eq("id", it.id);
+        }
+      }
+
+      // 3. Pedido
+      const { status: dbStatus, fulfillment_status } = fulfillmentToDb(uiStatus);
+      const createdAtIso = createdAt ? new Date(`${createdAt}T12:00:00`).toISOString() : null;
       const trackingTrim = tracking.trim();
       const supplierTrim = supplier.trim();
-      const newStatus: OrderStatus =
-        trackingTrim && order.status !== "entregue" && order.status !== "cancelado"
-          ? "enviado"
-          : order.status === "pendente" && src === "estoque"
-            ? "pago"
-            : order.status;
-      const createdAtIso = createdAt
-        ? new Date(`${createdAt}T12:00:00`).toISOString()
-        : null;
 
-      const { error } = await supabase
+      const { error: oErr } = await supabase
         .from("orders")
         .update({
+          payment_method: paymentMethod,
+          discount: discountNum,
+          total_value: subtotalCalc,
+          notes: notes.trim() || null,
           source: src,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
-          status: newStatus,
+          status: dbStatus,
+          fulfillment_status,
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", order.id);
-      if (error) throw error;
+      if (oErr) throw oErr;
 
+      // 4. Venda vinculada
       await supabase
         .from("sales")
         .update({
+          payment_method: paymentMethod,
+          total_value: totalCalc,
+          notes: notes.trim() || null,
           source: src,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          fulfillment_status,
+          customer_name_snapshot: custName.trim(),
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("order_id", order.id);
 
+      // 5. Importação
       if (trackingTrim) {
         const { data: existing } = await supabase
           .from("imports")
@@ -609,6 +723,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["fin-tx"] });
       qc.invalidateQueries({ queryKey: ["fin-orders"] });
+      qc.invalidateQueries({ queryKey: ["customers-search"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao salvar"),
   });
@@ -632,6 +747,37 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
   });
 
+  function addNewItem() {
+    if (!newCascade.team || !newCascade.productType || !newCascade.model || !newCascade.size) {
+      toast.error("Preencha time, tipo, modelo e tamanho");
+      return;
+    }
+    const price = Number(newPriceStr) || 0;
+    if (price <= 0) { toast.error("Informe o preço unitário"); return; }
+    const label = buildProductLabel({
+      team: newCascade.team,
+      season: newCascade.season,
+      productType: newCascade.productType,
+      model: newCascade.model,
+      specialEdition: newCascade.specialEdition,
+      gender: newCascade.gender,
+    });
+    setItems((prev) => [
+      ...prev,
+      {
+        id: `new-${Date.now()}`,
+        product_id: null,
+        product_name: label,
+        size: newCascade.size as SizeOpt,
+        quantity: newQty,
+        unit_price: price,
+      },
+    ]);
+    setNewCascade(emptyCascadeValue());
+    setNewQty(1);
+    setNewPriceStr("");
+    setShowAdd(false);
+  }
 
   const open = !!order;
   if (!order) {
@@ -641,10 +787,6 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       </Sheet>
     );
   }
-
-  const subtotal = order.items.reduce((s, i) => s + Number(i.unit_price) * i.quantity, 0);
-  const discount = Number(order.discount || 0);
-  const total = Number(order.total_value) - discount;
 
   const history: { label: string; at: string }[] = [
     { label: "Criado", at: order.created_at },
@@ -657,10 +799,10 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
   return (
     <>
       <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2 font-sora">
-              Pedido {orderNum(order.order_number)}
+              Editar pedido {orderNum(order.order_number)}
               <OrderStatusBadges o={order} />
             </SheetTitle>
             <p className="text-xs text-muted-foreground">{fmtDateTime(order.created_at)}</p>
@@ -668,68 +810,148 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
 
           <div className="mt-6 space-y-6">
             {/* Cliente */}
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Cliente</h4>
-              <p className="text-sm font-medium">{order.customer?.name ?? "—"}</p>
-              {order.customer?.phone && <p className="text-xs text-muted-foreground">WhatsApp: {order.customer.phone}</p>}
-              {order.customer?.instagram && <p className="text-xs text-muted-foreground">Instagram: {order.customer.instagram}</p>}
-            </section>
-
-            {/* Itens */}
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Produtos</h4>
-              <div className="space-y-2">
-                {order.items.map((it) => (
-                  <div key={it.id} className="flex items-center gap-3 rounded-md border border-border p-2">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                      {it.product?.image_url && (
-                        <img src={it.product.image_url} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{it.product?.name ?? it.product_name ?? "Produto"}</p>
-                      <p className="text-xs text-muted-foreground">Tam {it.size} · Qtd {it.quantity}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm tabular">{fmtBRL(Number(it.unit_price))}</p>
-                      <p className="text-xs text-muted-foreground tabular">{fmtBRL(Number(it.unit_price) * it.quantity)}</p>
-                    </div>
-                  </div>
-                ))}
+            <section className="space-y-2 rounded-md border border-border p-3">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">Cliente</h4>
+              <div>
+                <Label>Nome*</Label>
+                <Input value={custName} onChange={(e) => setCustName(e.target.value)} maxLength={120} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>WhatsApp</Label>
+                  <Input value={custPhone} onChange={(e) => setCustPhone(e.target.value)} maxLength={40} />
+                </div>
+                <div>
+                  <Label>Instagram</Label>
+                  <Input value={custInstagram} onChange={(e) => setCustInstagram(e.target.value)} maxLength={80} />
+                </div>
               </div>
             </section>
 
-            {/* Totais */}
-            <section className="rounded-md border border-border p-3 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular">{fmtBRL(subtotal)}</span></div>
-              {discount > 0 && (
-                <div className="flex justify-between"><span className="text-muted-foreground">Desconto</span><span className="tabular text-[color:#DC2626]">- {fmtBRL(discount)}</span></div>
+            {/* Itens */}
+            <section className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground">Produtos</h4>
+                <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd((s) => !s)}>
+                  {showAdd ? "Cancelar" : "Adicionar item"}
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {visibleItems.map((it) => {
+                  const realIdx = items.findIndex((x) => x.id === it.id);
+                  return (
+                    <div key={it.id} className="space-y-2 rounded-md border border-border p-2">
+                      <div className="flex items-start gap-2">
+                        <Input
+                          className="flex-1"
+                          value={it.product_name}
+                          onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, product_name: e.target.value } : x))}
+                          maxLength={200}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, removed: true } : x))}
+                          aria-label="Remover item"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs">Tam</Label>
+                          <Input
+                            value={it.size ?? ""}
+                            onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, size: (e.target.value as SizeOpt) || null } : x))}
+                            className="h-8"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Qtd</Label>
+                          <Input
+                            type="number" min={1}
+                            value={it.quantity}
+                            onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
+                            className="h-8"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Preço un.</Label>
+                          <Input
+                            type="number" step="0.01"
+                            value={it.unit_price}
+                            onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, unit_price: Number(e.target.value) || 0 } : x))}
+                            className="h-8 text-right tabular"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {visibleItems.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhum item. Adicione ao menos um.</p>
+                )}
+              </div>
+
+              {showAdd && (
+                <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-2">
+                  <ProductCascade value={newCascade} onChange={setNewCascade} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Qtd</Label>
+                      <Input type="number" min={1} value={newQty} onChange={(e) => setNewQty(Math.max(1, Number(e.target.value) || 1))} className="h-8" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Preço un. (R$)*</Label>
+                      <Input type="number" step="0.01" value={newPriceStr} onChange={(e) => setNewPriceStr(e.target.value)} className="h-8" />
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={addNewItem} className="w-full">Adicionar ao pedido</Button>
+                </div>
               )}
-              <div className="mt-2 flex justify-between border-t border-border pt-2 font-semibold"><span>Total</span><span className="tabular">{fmtBRL(total)}</span></div>
-              <div className="mt-2 flex justify-between text-xs"><span className="text-muted-foreground">Pagamento</span><span>{paymentMethodLabel[order.payment_method] ?? order.payment_method}</span></div>
             </section>
 
-            {order.notes && (
-              <section>
-                <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Observações</h4>
-                <p className="text-sm whitespace-pre-wrap">{order.notes}</p>
-              </section>
-            )}
+            {/* Pagamento */}
+            <section className="space-y-2 rounded-md border border-border p-3">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">Pagamento</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Forma</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(paymentMethodLabel).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Desconto (R$)</Label>
+                  <Input type="number" step="0.01" value={discountStr} onChange={(e) => setDiscountStr(e.target.value)} />
+                </div>
+              </div>
+              <div className="rounded-md bg-muted/30 p-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular">{fmtBRL(subtotalCalc)}</span></div>
+                {discountNum > 0 && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Desconto</span><span className="tabular text-[color:#DC2626]">- {fmtBRL(discountNum)}</span></div>
+                )}
+                <div className="mt-1 flex justify-between border-t border-border pt-1 font-semibold"><span>Total</span><span className="tabular">{fmtBRL(totalCalc)}</span></div>
+              </div>
+            </section>
 
-            {/* Histórico */}
             <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Histórico</h4>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {history.map((h, i) => (
-                  <li key={i} className="flex justify-between"><span>{h.label}</span><span>{fmtDateTime(h.at)}</span></li>
-                ))}
-              </ul>
+              <Label>Observações</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} maxLength={1000} />
             </section>
 
-            {/* Fornecedor / rastreio (editável) */}
+            {/* Logística */}
             <section className="space-y-3 rounded-md border border-border p-3">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">Logística</h4>
               <div>
-                <Label className="mb-1.5 block">Fornecedor</Label>
+                <Label className="mb-1.5 block">Origem</Label>
                 <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
                   <TabsList className="grid w-full grid-cols-3">
                     {ORDER_SOURCE_TABS.map((t) => (
@@ -743,12 +965,13 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                     value={supplier}
                     onChange={(e) => setSupplier(e.target.value)}
                     placeholder={src === "fornecedor_china" ? "Nome do fornecedor" : "Nome do revendedor"}
+                    maxLength={120}
                   />
                 )}
               </div>
               <div>
                 <Label>Código de rastreamento / Forma de entrega</Label>
-                <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" />
+                <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" maxLength={120} />
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {["Motoboy", "Entrega pessoal", "Retirada na loja"].map((opt) => (
                     <button
@@ -765,47 +988,21 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                     </button>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Informe um código de rastreio ou selecione uma forma de entrega sem rastreamento.
-                </p>
               </div>
               <div>
                 <Label>Data da compra</Label>
                 <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Ajuste caso o pedido tenha sido feito em outro dia.
-                </p>
               </div>
-              <Button className="w-full" onClick={() => saveSupplier.mutate()} disabled={saveSupplier.isPending}>
-                {saveSupplier.isPending ? "Salvando..." : "Salvar alterações"}
-              </Button>
             </section>
 
-            {/* Ações */}
-
+            {/* Status */}
             <section className="space-y-2">
-              <Label>
-                Status atual do pedido <span className="text-[color:#DC2626]">*</span>
-              </Label>
-              <Select
-                value={uiStatus}
-                onValueChange={(v) => {
-                  setUiStatus(v);
-                  const dbStatus: OrderStatus = v === "aguardando_retirada" ? "enviado" : (v as OrderStatus);
-                  if (typeof window !== "undefined") {
-                    if (v === "aguardando_retirada") {
-                      localStorage.setItem(`order_ui_status:${order.id}`, "aguardando_retirada");
-                    } else {
-                      localStorage.removeItem(`order_ui_status:${order.id}`);
-                    }
-                  }
-                  changeStatus.mutate(dbStatus);
-                }}
-              >
+              <Label>Status atual do pedido <span className="text-[color:#DC2626]">*</span></Label>
+              <Select value={uiStatus} onValueChange={setUiStatus}>
                 <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pendente">Aguardando fazer pedido com fornecedor</SelectItem>
-                  <SelectItem value="pago">Aguardando envio do fornecedor</SelectItem>
+                  <SelectItem value="aguardando_fornecedor">Aguardando fazer pedido com fornecedor</SelectItem>
+                  <SelectItem value="aguardando_envio_fornecedor">Aguardando envio do fornecedor</SelectItem>
                   <SelectItem value="enviado">Enviado</SelectItem>
                   <SelectItem value="aguardando_retirada">Aguardando retirada do cliente</SelectItem>
                   <SelectItem value="entregue">Entregue</SelectItem>
@@ -813,12 +1010,31 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Esse status alimenta automaticamente os filtros (envio pendente, enviado, entregue, etc.).
+                Alimenta os filtros (envio pendente, enviado, entregue, etc.).
               </p>
-              <Button variant="destructive" className="w-full" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="mr-2 h-4 w-4" /> Excluir pedido
-              </Button>
             </section>
+
+            {/* Histórico */}
+            <section>
+              <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Histórico</h4>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {history.map((h, i) => (
+                  <li key={i} className="flex justify-between"><span>{h.label}</span><span>{fmtDateTime(h.at)}</span></li>
+                ))}
+              </ul>
+            </section>
+
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-between">
+              <Button variant="destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+              </Button>
+              <div className="flex gap-2 sm:justify-end">
+                <Button variant="outline" onClick={onClose}>Cancelar</Button>
+                <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
+                  {saveAll.isPending ? "Salvando..." : "Salvar alterações"}
+                </Button>
+              </div>
+            </div>
           </div>
         </SheetContent>
       </Sheet>

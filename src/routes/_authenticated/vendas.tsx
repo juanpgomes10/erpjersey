@@ -139,7 +139,7 @@ function VendasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("*, customer:customers(name), items:sale_items(quantity, product:products(name, model, team, season))")
+        .select("*, customer:customers(id, name, phone, address), items:sale_items(id, product_id, product_name_snapshot, size, quantity, unit_price, unit_cost, product:products(name, model, team, season))")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
@@ -981,27 +981,81 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
 /* ---------------- Edit Sale Sheet ---------------- */
 
+type SaleEditItem = {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  size: SizeOpt | null;
+  quantity: number;
+  unit_price: number;
+  unit_cost: number;
+  removed?: boolean;
+};
+
 type SaleRow = {
   id: string;
   source: string | null;
   supplier_name: string | null;
   tracking_code: string | null;
+  delivery_method: string | null;
+  fulfillment_status: string | null;
   payment_method: string;
   total_value: number | string;
   net_value: number | string | null;
   notes: string | null;
   order_id: string | null;
   store_id: string;
+  customer_id: string | null;
   customer_name_snapshot: string | null;
-  customer: { name: string } | null;
+  customer: { id: string; name: string; phone: string | null; address: string | null } | null;
+  items: Array<{
+    id: string;
+    product_id: string | null;
+    product_name_snapshot: string | null;
+    size: string | null;
+    quantity: number;
+    unit_price: number | string;
+    unit_cost: number | string;
+    product: { name: string; model: string | null; team: string | null; season: string | null } | null;
+  }>;
   created_at?: string | null;
 };
 
+function fulfillmentToOrderStatusEdit(v: string): { status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"; fulfillment_status: string | null } {
+  const map: Record<string, "pendente" | "pago" | "enviado" | "entregue" | "cancelado"> = {
+    aguardando_fornecedor: "pendente",
+    aguardando_envio_fornecedor: "pago",
+    enviado: "enviado",
+    aguardando_retirada: "enviado",
+    entregue: "entregue",
+    cancelado: "cancelado",
+  };
+  const set = ["aguardando_fornecedor","aguardando_envio_fornecedor","enviado","aguardando_retirada","entregue"];
+  return { status: map[v] ?? "pago", fulfillment_status: set.includes(v) ? v : null };
+}
+
 function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () => void }) {
   const qc = useQueryClient();
+
+  // Customer
+  const [custName, setCustName] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [custAddress, setCustAddress] = useState("");
+
+  // Items
+  const [items, setItems] = useState<SaleEditItem[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newCascade, setNewCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
+  const [newQty, setNewQty] = useState(1);
+  const [newPriceStr, setNewPriceStr] = useState("");
+  const [newCostStr, setNewCostStr] = useState("");
+
+  // Logistics + finance
   const [src, setSrc] = useState<SourceKey>("estoque");
   const [supplier, setSupplier] = useState("");
   const [tracking, setTracking] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<string>("");
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<string>("aguardando_envio_fornecedor");
   const [payment, setPayment] = useState("pix");
   const [paid, setPaid] = useState("");
   const [net, setNet] = useState("");
@@ -1010,14 +1064,36 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
 
   useEffect(() => {
     if (!sale) return;
+    setCustName(sale.customer?.name ?? sale.customer_name_snapshot ?? "");
+    setCustPhone(sale.customer?.phone ?? "");
+    setCustAddress(sale.customer?.address ?? "");
+    setItems(
+      (sale.items ?? []).map((it) => ({
+        id: it.id,
+        product_id: it.product_id,
+        product_name: it.product?.name ?? it.product_name_snapshot ?? "Produto",
+        size: (it.size as SizeOpt) ?? null,
+        quantity: it.quantity,
+        unit_price: Number(it.unit_price),
+        unit_cost: Number(it.unit_cost),
+      })),
+    );
+    setShowAdd(false);
+    setNewCascade(emptyCascadeValue());
+    setNewQty(1);
+    setNewPriceStr("");
+    setNewCostStr("");
+
     const s = (sale.source ?? "estoque") as string;
     const normalized: SourceKey =
       s === "drop" ? "fornecedor_china" :
       s === "loja_parceira" ? "revendedor_br" :
-      (s as SourceKey);
+      (["estoque","fornecedor_china","revendedor_br"].includes(s) ? (s as SourceKey) : "estoque");
     setSrc(normalized);
     setSupplier(sale.supplier_name ?? "");
     setTracking(sale.tracking_code ?? "");
+    setDeliveryMethod(sale.delivery_method ?? "");
+    setFulfillmentStatus(sale.fulfillment_status ?? "aguardando_envio_fornecedor");
     setPayment(sale.payment_method ?? "pix");
     setPaid(String(sale.total_value ?? ""));
     setNet(sale.net_value != null ? String(sale.net_value) : "");
@@ -1025,17 +1101,64 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
     setCreatedAt(sale.created_at ? String(sale.created_at).slice(0, 10) : "");
   }, [sale]);
 
+  const visibleItems = items.filter((i) => !i.removed);
+  const itemsTotal = visibleItems.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const itemsCost = visibleItems.reduce((s, i) => s + i.unit_cost * i.quantity, 0);
+
   const save = useMutation({
     mutationFn: async () => {
       if (!sale) return;
+      if (!custName.trim()) throw new Error("Nome do cliente é obrigatório");
+      if (visibleItems.length === 0) throw new Error("A venda precisa ter ao menos um item");
+
+      // 1. Cliente
+      if (sale.customer?.id) {
+        await supabase
+          .from("customers")
+          .update({
+            name: custName.trim(),
+            phone: custPhone.trim() || null,
+            address: custAddress.trim() || null,
+          } as never)
+          .eq("id", sale.customer.id);
+      }
+
+      // 2. Itens
+      for (const it of items) {
+        if (it.removed && !it.id.startsWith("new-")) {
+          await supabase.from("sale_items").delete().eq("id", it.id);
+        } else if (it.id.startsWith("new-") && !it.removed) {
+          await supabase.from("sale_items").insert({
+            sale_id: sale.id,
+            product_id: it.product_id,
+            product_name_snapshot: it.product_name,
+            size: it.size,
+            quantity: it.quantity,
+            unit_price: it.unit_price,
+            unit_cost: it.unit_cost,
+          } as never);
+        } else if (!it.removed) {
+          await supabase
+            .from("sale_items")
+            .update({
+              product_name_snapshot: it.product_name,
+              size: it.size,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+              unit_cost: it.unit_cost,
+            } as never)
+            .eq("id", it.id);
+        }
+      }
+
+      // 3. Venda
       const trackingTrim = tracking.trim();
       const supplierTrim = supplier.trim();
-      const paidValue = Number(paid) || 0;
+      const paidValue = Number(paid) || itemsTotal;
       const netValue = Number(net) || paidValue;
-
-      const createdAtIso = createdAt
-        ? new Date(`${createdAt}T12:00:00`).toISOString()
-        : null;
+      const profit = netValue - itemsCost;
+      const createdAtIso = createdAt ? new Date(`${createdAt}T12:00:00`).toISOString() : null;
+      const { status: orderStatus, fulfillment_status } = fulfillmentToOrderStatusEdit(fulfillmentStatus);
 
       const { error } = await supabase
         .from("sales")
@@ -1043,28 +1166,32 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
           source: src,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          delivery_method: deliveryMethod || null,
+          fulfillment_status,
           payment_method: payment,
           total_value: paidValue,
           net_value: netValue,
-          notes: obs || null,
+          profit,
+          notes: obs.trim() || null,
+          customer_name_snapshot: custName.trim(),
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", sale.id);
       if (error) throw error;
 
-      // Propaga para o pedido vinculado
+      // 4. Pedido vinculado
       if (sale.order_id) {
-        const orderStatus: "pago" | "pendente" | "enviado" =
-          trackingTrim ? "enviado" : src === "estoque" ? "pago" : "pendente";
         await supabase
           .from("orders")
           .update({
             source: src,
             supplier_name: supplierTrim || null,
             tracking_code: trackingTrim || null,
+            delivery_method: deliveryMethod || null,
+            fulfillment_status,
             payment_method: payment,
             total_value: paidValue,
-            notes: obs || null,
+            notes: obs.trim() || null,
             status: orderStatus,
             ...(createdAtIso ? { created_at: createdAtIso } : {}),
           } as never)
@@ -1094,10 +1221,46 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["fin-tx"] });
       qc.invalidateQueries({ queryKey: ["fin-orders"] });
+      qc.invalidateQueries({ queryKey: ["customers-search"] });
       onClose();
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
   });
+
+  function addNewItem() {
+    if (!newCascade.team || !newCascade.productType || !newCascade.model || !newCascade.size) {
+      toast.error("Preencha time, tipo, modelo e tamanho");
+      return;
+    }
+    const price = Number(newPriceStr) || 0;
+    if (price <= 0) { toast.error("Informe o preço unitário"); return; }
+    const cost = Number(newCostStr) || 0;
+    const label = buildProductLabel({
+      team: newCascade.team,
+      season: newCascade.season,
+      productType: newCascade.productType,
+      model: newCascade.model,
+      specialEdition: newCascade.specialEdition,
+      gender: newCascade.gender,
+    });
+    setItems((prev) => [
+      ...prev,
+      {
+        id: `new-${Date.now()}`,
+        product_id: null,
+        product_name: label,
+        size: newCascade.size as SizeOpt,
+        quantity: newQty,
+        unit_price: price,
+        unit_cost: cost,
+      },
+    ]);
+    setNewCascade(emptyCascadeValue());
+    setNewQty(1);
+    setNewPriceStr("");
+    setNewCostStr("");
+    setShowAdd(false);
+  }
 
   const open = !!sale;
   if (!sale) {
@@ -1108,82 +1271,222 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
     );
   }
 
-  const customerName = sale.customer?.name ?? sale.customer_name_snapshot ?? "—";
-
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="font-sora">Editar venda</SheetTitle>
-          <p className="text-xs text-muted-foreground">{customerName}</p>
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
-          <section>
-            <Label className="mb-1.5 block">Fornecedor</Label>
-            <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
-              <TabsList className="grid w-full grid-cols-3">
-                {SOURCE_TABS.map((t) => (
-                  <TabsTrigger key={t.value} value={t.value} className="text-xs">
-                    {t.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-            {src !== "estoque" && (
-              <div className="mt-3">
-                <Label>Nome do {src === "fornecedor_china" ? "fornecedor" : "revendedor"}</Label>
-                <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+          {/* Cliente */}
+          <section className="space-y-2 rounded-md border border-border p-3">
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground">Cliente</h4>
+            <div>
+              <Label>Nome*</Label>
+              <Input value={custName} onChange={(e) => setCustName(e.target.value)} maxLength={120} />
+            </div>
+            <div>
+              <Label>WhatsApp</Label>
+              <Input value={custPhone} onChange={(e) => setCustPhone(e.target.value)} maxLength={40} />
+            </div>
+            <div>
+              <Label>Endereço</Label>
+              <Textarea value={custAddress} onChange={(e) => setCustAddress(e.target.value)} rows={2} maxLength={500} />
+            </div>
+          </section>
+
+          {/* Itens */}
+          <section className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">Produtos</h4>
+              <Button type="button" size="sm" variant="outline" onClick={() => setShowAdd((s) => !s)}>
+                {showAdd ? "Cancelar" : "Adicionar item"}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {visibleItems.map((it) => {
+                const realIdx = items.findIndex((x) => x.id === it.id);
+                return (
+                  <div key={it.id} className="space-y-2 rounded-md border border-border p-2">
+                    <div className="flex items-start gap-2">
+                      <Input
+                        className="flex-1"
+                        value={it.product_name}
+                        onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, product_name: e.target.value } : x))}
+                        maxLength={200}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, removed: true } : x))}
+                        aria-label="Remover item"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-xs">Tam</Label>
+                        <Input
+                          value={it.size ?? ""}
+                          onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, size: (e.target.value as SizeOpt) || null } : x))}
+                          className="h-8"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Qtd</Label>
+                        <Input
+                          type="number" min={1}
+                          value={it.quantity}
+                          onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, quantity: Math.max(1, Number(e.target.value) || 1) } : x))}
+                          className="h-8"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Preço un.</Label>
+                        <Input
+                          type="number" step="0.01"
+                          value={it.unit_price}
+                          onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, unit_price: Number(e.target.value) || 0 } : x))}
+                          className="h-8 text-right tabular"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Custo un.</Label>
+                        <Input
+                          type="number" step="0.01"
+                          value={it.unit_cost}
+                          onChange={(e) => setItems((p) => p.map((x, i) => i === realIdx ? { ...x, unit_cost: Number(e.target.value) || 0 } : x))}
+                          className="h-8 text-right tabular"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {visibleItems.length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhum item. Adicione ao menos um.</p>
+              )}
+            </div>
+
+            {showAdd && (
+              <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-2">
+                <ProductCascade value={newCascade} onChange={setNewCascade} />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Qtd</Label>
+                    <Input type="number" min={1} value={newQty} onChange={(e) => setNewQty(Math.max(1, Number(e.target.value) || 1))} className="h-8" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Custo un.</Label>
+                    <Input type="number" step="0.01" value={newCostStr} onChange={(e) => setNewCostStr(e.target.value)} className="h-8" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Preço un.*</Label>
+                    <Input type="number" step="0.01" value={newPriceStr} onChange={(e) => setNewPriceStr(e.target.value)} className="h-8" />
+                  </div>
+                </div>
+                <Button size="sm" onClick={addNewItem} className="w-full">Adicionar à venda</Button>
               </div>
             )}
           </section>
 
-          <section>
-            <Label>Código de rastreamento</Label>
-            <Input
-              value={tracking}
-              onChange={(e) => setTracking(e.target.value)}
-              placeholder="Ex.: LP123456789CN"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Ao preencher, o código é vinculado à página de Importações e o pedido sai de Pendentes.
-            </p>
-          </section>
-
-          <section className="grid grid-cols-2 gap-3">
+          {/* Logística */}
+          <section className="space-y-3 rounded-md border border-border p-3">
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground">Logística</h4>
             <div>
-              <Label>Valor pago</Label>
-              <Input type="number" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} />
+              <Label className="mb-1.5 block">Origem</Label>
+              <Tabs value={src} onValueChange={(v) => setSrc(v as SourceKey)}>
+                <TabsList className="grid w-full grid-cols-3">
+                  {SOURCE_TABS.map((t) => (
+                    <TabsTrigger key={t.value} value={t.value} className="text-xs">{t.label}</TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+              {src !== "estoque" && (
+                <Input
+                  className="mt-2"
+                  value={supplier}
+                  onChange={(e) => setSupplier(e.target.value)}
+                  placeholder={src === "fornecedor_china" ? "Nome do fornecedor" : "Nome do revendedor"}
+                  maxLength={120}
+                />
+              )}
             </div>
             <div>
-              <Label>Líquido</Label>
-              <Input type="number" step="0.01" value={net} onChange={(e) => setNet(e.target.value)} />
+              <Label>Código de rastreamento</Label>
+              <Input
+                value={tracking}
+                onChange={(e) => { setTracking(e.target.value); if (e.target.value.trim()) setDeliveryMethod(""); }}
+                placeholder="Ex.: LP123456789CN"
+                maxLength={120}
+              />
+            </div>
+            <div>
+              <Label>Forma de entrega (sem rastreio)</Label>
+              <Select value={deliveryMethod || undefined} onValueChange={(v) => { setDeliveryMethod(v); if (v) setTracking(""); }} disabled={!!tracking.trim()}>
+                <SelectTrigger><SelectValue placeholder="Selecione a forma de entrega" /></SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_METHOD_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </section>
 
+          {/* Status */}
           <section>
-            <Label>Forma de pagamento</Label>
-            <Select value={payment} onValueChange={setPayment}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>Status atual do pedido <span className="text-[color:#DC2626]">*</span></Label>
+            <Select value={fulfillmentStatus} onValueChange={setFulfillmentStatus}>
+              <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
               <SelectContent>
-                {Object.entries(paymentMethodLabel).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                {FULFILLMENT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </section>
 
-          <section>
-            <Label>Data da compra</Label>
-            <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Ajuste a data caso a venda tenha sido feita em outro dia.
+          {/* Pagamento */}
+          <section className="space-y-2 rounded-md border border-border p-3">
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground">Pagamento</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Valor pago</Label>
+                <Input type="number" step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} placeholder={fmtBRL(itemsTotal)} />
+              </div>
+              <div>
+                <Label>Líquido</Label>
+                <Input type="number" step="0.01" value={net} onChange={(e) => setNet(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label>Forma de pagamento</Label>
+              <Select value={payment} onValueChange={setPayment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(paymentMethodLabel).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Soma dos itens: <span className="tabular">{fmtBRL(itemsTotal)}</span> · Custo: <span className="tabular">{fmtBRL(itemsCost)}</span>
             </p>
           </section>
 
           <section>
+            <Label>Data da compra</Label>
+            <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+          </section>
+
+          <section>
             <Label>Observações</Label>
-            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
+            <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} maxLength={1000} />
           </section>
 
           <div className="flex justify-end gap-2 pt-2">
