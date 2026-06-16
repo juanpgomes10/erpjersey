@@ -341,6 +341,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSource("estoque");
       setSupplierName("");
       setTrackingCode("");
+      setDeliveryMethod("");
+      setFulfillmentStatus("");
       setPaidValueStr("");
       setNetValueStr("");
       setShippingCostStr("");
