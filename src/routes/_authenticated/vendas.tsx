@@ -270,7 +270,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [cfgPersonNumber, setCfgPersonNumber] = useState("");
 
   // Cliente
-  const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("cadastrado");
+  const [customerMode, setCustomerMode] = useState<"cadastrado" | "novo">("novo");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [newCustomerName, setNewCustomerName] = useState("");
