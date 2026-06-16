@@ -1314,6 +1314,14 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
           </section>
 
           <section>
+            <Label>Data da compra</Label>
+            <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ajuste a data caso a venda tenha sido feita em outro dia.
+            </p>
+          </section>
+
+          <section>
             <Label>Observações</Label>
             <Textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={3} />
           </section>
