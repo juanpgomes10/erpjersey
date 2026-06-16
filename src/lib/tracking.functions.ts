@@ -128,13 +128,33 @@ export const registerTracking = createServerFn({ method: "POST" })
 // ───────────────────────── REFRESH ONE ─────────────────────────
 const refreshOneSchema = z.object({ importId: z.string().uuid() });
 
-async function refreshOneInternal(
-  supabase: ReturnType<typeof getApiKey> extends string ? never : never,
-) {
-  // Just a type marker; real impl is inline below.
-  void supabase;
+// Mapeia status de importação → status de pedido (orders)
+function importStatusToOrderStatus(s: ImportStatus): "enviado" | "entregue" | null {
+  if (s === "entregue") return "entregue";
+  if (
+    s === "enviado" ||
+    s === "em_transito" ||
+    s === "chegou_brasil" ||
+    s === "aguardando_taxa" ||
+    s === "saiu_entrega"
+  ) {
+    return "enviado";
+  }
+  return null;
 }
-void refreshOneInternal;
+
+// Propaga status para os pedidos vinculados a uma importação.
+async function propagateToOrders(
+  supabase: { from: (t: string) => { update: (v: unknown) => { in: (c: string, ids: string[]) => Promise<unknown> } } },
+  linkedOrderIds: string[] | null | undefined,
+  mappedImportStatus: ImportStatus | null,
+) {
+  if (!linkedOrderIds?.length || !mappedImportStatus) return;
+  const orderStatus = importStatusToOrderStatus(mappedImportStatus);
+  if (!orderStatus) return;
+  await supabase.from("orders").update({ status: orderStatus }).in("id", linkedOrderIds);
+}
+
 
 export const refreshTracking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
