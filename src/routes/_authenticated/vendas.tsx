@@ -1134,6 +1134,7 @@ type SaleRow = {
   store_id: string;
   customer_name_snapshot: string | null;
   customer: { name: string } | null;
+  created_at?: string | null;
 };
 
 function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () => void }) {
