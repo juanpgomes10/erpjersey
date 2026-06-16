@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Receipt, X, UserPlus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
-import { modelShortLabel } from "./estoque";
 import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
 import { buildProductLabel } from "@/lib/teams";
 import { Button } from "@/components/ui/button";
