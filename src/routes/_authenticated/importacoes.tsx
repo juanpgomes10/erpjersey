@@ -995,11 +995,13 @@ function NewImportDialog({
 
     },
     onSuccess: () => {
-      toast.success("Importação cadastrada");
+      toast.success("Importação cadastrada — pedidos marcados como Enviado");
       qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
       reset();
       onOpenChange(false);
     },
+
     onError: (e: Error) => {
       setUploading(false);
       toast.error(e.message);
