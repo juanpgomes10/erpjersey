@@ -215,6 +215,8 @@ type OrderRow = {
   supplier_name: string | null;
   tracking_code: string | null;
   store_id: string;
+  fulfillment_status: string | null;
+  delivery_method: string | null;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
