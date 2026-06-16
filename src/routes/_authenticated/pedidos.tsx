@@ -927,8 +927,6 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     setCfgPriceStr("");
   };
 
-  };
-
   const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
   const customerValid = customerMode === "cadastrado" ? !!customerId : newCustomerName.trim().length > 0;
