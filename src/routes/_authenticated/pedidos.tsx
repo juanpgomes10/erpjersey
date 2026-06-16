@@ -82,20 +82,41 @@ const STATUS_STYLE: Record<DisplayStatus, { bg: string; fg: string }> = {
   envio_pendente: { bg: "#9333EA15", fg: "#9333EA" },
 };
 
-type OrderLike = { status: OrderStatus; tracking_code: string | null; supplier_name: string | null };
+type FulfillmentStatus =
+  | "aguardando_fornecedor"
+  | "aguardando_envio_fornecedor"
+  | "enviado"
+  | "aguardando_retirada"
+  | "entregue";
+
+type OrderLike = {
+  status: OrderStatus;
+  tracking_code: string | null;
+  supplier_name: string | null;
+  fulfillment_status?: string | null;
+};
 
 function financeStatusOf(o: OrderLike): "pago" | "pendente" | "cancelado" {
   if (o.status === "cancelado") return "cancelado";
+  const f = o.fulfillment_status as FulfillmentStatus | null | undefined;
+  if (f) {
+    if (f === "aguardando_fornecedor") return "pendente";
+    return "pago"; // demais estágios já implicam pagamento confirmado
+  }
   if (o.status === "pago" || o.status === "enviado" || o.status === "entregue") return "pago";
   return "pendente";
 }
 
 function logisticsStatusOf(o: OrderLike): "envio_pendente" | "enviado" | "entregue" | null {
   if (o.status === "cancelado") return null;
+  const f = o.fulfillment_status as FulfillmentStatus | null | undefined;
+  if (f) {
+    if (f === "entregue") return "entregue";
+    if (f === "enviado" || f === "aguardando_retirada") return "enviado";
+    return "envio_pendente"; // aguardando_fornecedor / aguardando_envio_fornecedor
+  }
   if (o.status === "entregue") return "entregue";
   if (o.status === "enviado") return "enviado";
-  // pendente/pago: se não tem rastreio nem fornecedor → envio pendente
-  if (!o.tracking_code?.trim() && !o.supplier_name?.trim()) return "envio_pendente";
   return "envio_pendente";
 }
 
@@ -194,6 +215,8 @@ type OrderRow = {
   supplier_name: string | null;
   tracking_code: string | null;
   store_id: string;
+  fulfillment_status: string | null;
+  delivery_method: string | null;
   customer: { id: string; name: string; phone: string | null; instagram: string | null } | null;
   items: Array<{
     id: string;
@@ -224,7 +247,7 @@ function PedidosPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, supplier_name, tracking_code, store_id, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
+          "id, order_number, status, total_value, discount, payment_method, notes, created_at, paid_at, shipped_at, delivered_at, cancelled_at, source, supplier_name, tracking_code, store_id, fulfillment_status, delivery_method, customer:customers(id, name, phone, instagram), items:order_items(id, size, quantity, unit_price, product_name, product:products(id, name, team, season, model, image_url))",
         )
 
         .order("created_at", { ascending: false })
