@@ -209,15 +209,20 @@ export const Route = createFileRoute("/api/public/hooks/refresh-trackings")({
             { headers: { "Content-Type": "application/json" } },
           );
         } catch (e) {
-          const msg = e instanceof Error ? e.message : "Erro desconhecido";
-          return new Response(JSON.stringify({ ok: false, error: msg }), {
+          console.error("[refresh-trackings] erro:", e);
+          return new Response(JSON.stringify({ ok: false, error: "Internal error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
           });
         }
       },
-      GET: async () => {
-        // Permite health-check manual
+      GET: async ({ request }) => {
+        if (!isAuthorized(request)) {
+          return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify({ ok: true, hint: "use POST para executar" }), {
           headers: { "Content-Type": "application/json" },
         });
