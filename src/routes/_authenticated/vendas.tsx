@@ -50,6 +50,40 @@ const sourceLabel = (s: string) => {
   return f?.label ?? s;
 };
 
+type DeliveryMethod = "entrega_particular" | "motoboy_app" | "retirada_loja";
+const DELIVERY_METHOD_OPTIONS: { value: DeliveryMethod; label: string }[] = [
+  { value: "entrega_particular", label: "Entrega particular" },
+  { value: "motoboy_app", label: "Motoboy / app" },
+  { value: "retirada_loja", label: "Retirada na loja" },
+];
+
+type FulfillmentStatus =
+  | "aguardando_fornecedor"
+  | "aguardando_envio_fornecedor"
+  | "enviado"
+  | "aguardando_retirada"
+  | "entregue";
+
+const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
+  { value: "aguardando_fornecedor", label: "Aguardando fazer pedido com fornecedor" },
+  { value: "aguardando_envio_fornecedor", label: "Aguardando envio do fornecedor" },
+  { value: "enviado", label: "Enviado" },
+  { value: "aguardando_retirada", label: "Aguardando retirada do cliente" },
+  { value: "entregue", label: "Entregue" },
+];
+
+// Mapeia o status visual escolhido pelo usuário para o status canônico do pedido,
+// que alimenta os filtros existentes (pendente / pago / enviado / entregue).
+function fulfillmentToOrderStatus(f: FulfillmentStatus): "pendente" | "pago" | "enviado" | "entregue" {
+  switch (f) {
+    case "aguardando_fornecedor": return "pendente";
+    case "aguardando_envio_fornecedor": return "pago";
+    case "enviado": return "enviado";
+    case "aguardando_retirada": return "enviado";
+    case "entregue": return "entregue";
+  }
+}
+
 // Helper para vincular pedido a uma importação (upsert)
 async function linkOrderToImport(opts: {
   storeId: string;
