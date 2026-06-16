@@ -434,6 +434,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       if (!profile?.store_id) throw new Error("Sem loja vinculada");
       if (cart.length === 0) throw new Error("Adicione ao menos um produto");
       if (!customerValid) throw new Error("Selecione ou cadastre um cliente");
+      if (!fulfillmentStatus) throw new Error("Selecione o status atual do pedido");
 
       // 1. Cliente
       let finalCustomerId: string | null = customerId;
