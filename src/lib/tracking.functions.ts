@@ -225,8 +225,16 @@ export const refreshTracking = createServerFn({ method: "POST" })
       }
     }
 
+    // Propaga status para os pedidos vinculados
+    await propagateToOrders(
+      supabase as unknown as Parameters<typeof propagateToOrders>[0],
+      (imp as unknown as { linked_order_ids?: string[] | null }).linked_order_ids ?? null,
+      mapped,
+    );
+
     return { events, status: mapped ?? rawStatus };
   });
+
 
 // ───────────────────────── REFRESH ALL ─────────────────────────
 export const refreshAllTrackings = createServerFn({ method: "POST" })
