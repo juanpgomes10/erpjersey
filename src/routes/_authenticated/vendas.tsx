@@ -970,7 +970,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0 || !customerValid}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0 || !customerValid || !fulfillmentStatus}>
             {save.isPending ? "Salvando..." : "Confirmar venda"}
           </Button>
         </DialogFooter>
