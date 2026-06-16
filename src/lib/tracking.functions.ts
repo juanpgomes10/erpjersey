@@ -246,7 +246,8 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
     // Apenas as ativas (não entregues nem barradas/canceladas)
     const { data: list, error } = await supabase
       .from("imports")
-      .select("id, store_id, tracking_code, carrier, status")
+      .select("id, store_id, tracking_code, carrier, status, linked_order_ids")
+
       .not("tracking_code", "is", null)
       .not("status", "in", "(entregue,cancelado,barrado_alfandega)");
     if (error) throw new Error(error.message);
