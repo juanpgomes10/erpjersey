@@ -468,6 +468,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
   const [supplier, setSupplier] = useState("");
   const [tracking, setTracking] = useState("");
   const [createdAt, setCreatedAt] = useState("");
+  const [uiStatus, setUiStatus] = useState<string>("pendente");
 
   useEffect(() => {
     if (!order) return;
@@ -480,6 +481,12 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     setSupplier(order.supplier_name ?? "");
     setTracking(order.tracking_code ?? "");
     setCreatedAt(order.created_at ? String(order.created_at).slice(0, 10) : "");
+    const stored = typeof window !== "undefined" ? localStorage.getItem(`order_ui_status:${order.id}`) : null;
+    if (stored === "aguardando_retirada" && order.status === "enviado") {
+      setUiStatus("aguardando_retirada");
+    } else {
+      setUiStatus(order.status);
+    }
   }, [order]);
 
   const changeStatus = useMutation({
