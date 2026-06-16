@@ -317,7 +317,13 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
           } as never);
         }
       }
+      await propagateToOrders(
+        supabase as unknown as Parameters<typeof propagateToOrders>[0],
+        (imp as unknown as { linked_order_ids?: string[] | null }).linked_order_ids ?? null,
+        mapped,
+      );
       updated += 1;
     }
+
     return { updated, total: list.length };
   });
