@@ -92,7 +92,7 @@ function AuthPage() {
             <LogoBag size={180} />
           </div>
           <h1 className="font-sora text-4xl font-semibold leading-tight">
-            Tudo sobre sua loja de camisas.
+            Tudo sobre sua loja de camisas de time.
             <br />
             Em um único lugar.
           </h1>
