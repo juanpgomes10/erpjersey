@@ -1010,82 +1010,27 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
         {step === 1 && (
           <div className="space-y-4">
-            <div>
-              <Label>Buscar produto</Label>
-              <Input
-                ref={productSearchRef}
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Time, modelo ou temporada..."
-              />
-              {productSearch && !selected && (
-                <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-border">
-                  {filteredProducts.length === 0 ? (
-                    <p className="p-3 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
-                  ) : (
-                    filteredProducts.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selectProduct(p)}
-                        className="flex w-full items-center justify-between gap-3 border-b border-border p-3 text-left last:border-none hover:bg-accent"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {[p.team, p.model ? modelShortLabel(p.model) : null, p.season].filter(Boolean).join(" · ") || p.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Selecionar →</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-4 space-y-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Configurar produto do pedido</p>
 
-            {selected && (
-              <div className="rounded-md border border-primary/40 bg-primary/5 p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm font-medium">
-                    {[selected.team, selected.model ? modelShortLabel(selected.model) : null, selected.season].filter(Boolean).join(" · ") || selected.name}
-                  </p>
-                  <Button variant="ghost" size="icon" onClick={() => setSelected(null)}><X className="h-4 w-4" /></Button>
+              <ProductCascade value={cascade} onChange={setCascade} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantidade</Label>
+                  <Input type="number" min={1} value={cfgQty} onChange={(e) => setCfgQty(Math.max(1, Number(e.target.value)))} />
                 </div>
                 <div>
-                  <Label className="mb-1.5 block">Tamanho*</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => setCfgSize(sz)}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Quantidade</Label>
-                    <Input type="number" min={1} value={cfgQty} onChange={(e) => setCfgQty(Math.max(1, Number(e.target.value)))} />
-                  </div>
-                  <div>
-                    <Label>Preço unit. (R$)</Label>
-                    <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setSelected(null)}>Cancelar</Button>
-                  <Button onClick={addToCart}>Adicionar ao pedido</Button>
+                  <Label>Preço unit. (R$)*</Label>
+                  <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} />
                 </div>
               </div>
-            )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setCascade(emptyCascadeValue()); setCfgQty(1); setCfgPriceStr(""); }}>Limpar</Button>
+                <Button onClick={addToCart}>Adicionar ao pedido</Button>
+              </div>
+            </div>
+
 
             {cart.length > 0 && (
               <div className="rounded-md border border-border">
