@@ -715,10 +715,26 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                 )}
               </div>
               <div>
-                <Label>Código de rastreamento</Label>
+                <Label>Código de rastreamento / Forma de entrega</Label>
                 <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {["Motoboy", "Entrega pessoal", "Retirada na loja"].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setTracking(opt)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        tracking === opt
+                          ? "border-[color:#2563EB] bg-[color:#2563EB15] text-[color:#2563EB]"
+                          : "border-border text-muted-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Você pode preencher isso depois. Ao informar, é vinculado à página de Importações.
+                  Informe um código de rastreio ou selecione uma forma de entrega sem rastreamento.
                 </p>
               </div>
               <div>
@@ -736,15 +752,23 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
             {/* Ações */}
 
             <section className="space-y-2">
-              <Label>Alterar status</Label>
+              <Label>
+                Status atual do pedido <span className="text-[color:#DC2626]">*</span>
+              </Label>
               <Select value={order.status} onValueChange={(v) => changeStatus.mutate(v as OrderStatus)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Selecione o status" /></SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(STATUS_LABEL) as OrderStatus[]).map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
-                  ))}
+                  <SelectItem value="pendente">Aguardando fazer pedido com fornecedor</SelectItem>
+                  <SelectItem value="pago">Aguardando envio do fornecedor</SelectItem>
+                  <SelectItem value="enviado">Enviado</SelectItem>
+                  <SelectItem value="aguardando_retirada">Aguardando retirada do cliente</SelectItem>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Esse status alimenta automaticamente os filtros (envio pendente, enviado, entregue, etc.).
+              </p>
               <Button variant="destructive" className="w-full" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="mr-2 h-4 w-4" /> Excluir pedido
               </Button>
