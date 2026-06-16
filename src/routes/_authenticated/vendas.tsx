@@ -867,7 +867,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <Label>Nome</Label>
-                        <Input value={cfgPersonName} onChange={(e) => setCfgPersonName(e.target.value)} placeholder="Nome do cliente" />
+                        <Input value={cfgPersonName} onChange={(e) => setCfgPersonName(e.target.value)} placeholder="Nome" />
                       </div>
                       <div>
                         <Label>Número</Label>
