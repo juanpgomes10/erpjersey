@@ -1173,6 +1173,10 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       const paidValue = Number(paid) || 0;
       const netValue = Number(net) || paidValue;
 
+      const createdAtIso = createdAt
+        ? new Date(`${createdAt}T12:00:00`).toISOString()
+        : null;
+
       const { error } = await supabase
         .from("sales")
         .update({
@@ -1183,6 +1187,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
           total_value: paidValue,
           net_value: netValue,
           notes: obs || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", sale.id);
       if (error) throw error;
@@ -1201,6 +1206,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
             total_value: paidValue,
             notes: obs || null,
             status: orderStatus,
+            ...(createdAtIso ? { created_at: createdAtIso } : {}),
           } as never)
           .eq("id", sale.order_id);
 
