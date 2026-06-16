@@ -467,6 +467,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
   const [src, setSrc] = useState<SourceKey>("estoque");
   const [supplier, setSupplier] = useState("");
   const [tracking, setTracking] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
 
   useEffect(() => {
     if (!order) return;
@@ -478,6 +479,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     setSrc(normalized);
     setSupplier(order.supplier_name ?? "");
     setTracking(order.tracking_code ?? "");
+    setCreatedAt(order.created_at ? String(order.created_at).slice(0, 10) : "");
   }, [order]);
 
   const changeStatus = useMutation({
