@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Package, Pencil, Trash2, Filter, X } from "lucide-react";
 import { toast } from "sonner";
@@ -26,19 +26,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import {
+  SIZES_ADULT,
+  SIZES_KIDS,
+  buildProductLabel,
+  teamLabel,
+  productTypeLabel,
+  modelLabel as cascadeModelLabel,
+  sizesForGender,
+  PRODUCT_TYPES,
+} from "@/lib/teams";
+import type { Database } from "@/integrations/supabase/types";
 
-const SIZES = ["P", "M", "G", "GG", "XGG"] as const;
-type Size = (typeof SIZES)[number];
+type Size = Database["public"]["Enums"]["product_size"];
+const SIZES: readonly Size[] = [...SIZES_ADULT, ...SIZES_KIDS] as readonly Size[];
 
 export const MODEL_OPTIONS = [
   { value: "1", label: "Camisa 1 (Home / Titular)" },
   { value: "2", label: "Camisa 2 (Away / Reserva)" },
   { value: "3", label: "Camisa 3 (Third)" },
-  { value: "4", label: "Camisa 4" },
+  { value: "treino_1", label: "Camisa de treino 1" },
+  { value: "treino_2", label: "Camisa de treino 2" },
   { value: "edicao_especial", label: "Edição especial" },
 ] as const;
 
+// Mantido para o filtro existente. Os novos cadastros usam `productType` (camisa torcedor, kit infantil etc).
 export const CATEGORY_OPTIONS = [
+  ...PRODUCT_TYPES.map((p) => ({ value: p.value, label: p.label })),
   { value: "brasileiros", label: "Times brasileiros" },
   { value: "internacionais", label: "Times internacionais" },
   { value: "retro", label: "Camisas retrô" },
@@ -56,12 +71,15 @@ export const GENDER_OPTIONS = [
 
 export const modelShortLabel = (m: string | null | undefined) => {
   if (!m) return "";
+  const fromCascade = cascadeModelLabel(m);
+  if (fromCascade && fromCascade !== m) return fromCascade;
   const f = MODEL_OPTIONS.find((o) => o.value === m);
-  return f ? (m === "edicao_especial" ? "Edição especial" : `Camisa ${m}`) : m;
+  return f ? f.label : m;
 };
 
 const categoryLabel = (c: string | null | undefined) =>
   CATEGORY_OPTIONS.find((o) => o.value === c)?.label ?? null;
+
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({ meta: [{ title: "Estoque — ERPJersey" }] }),
