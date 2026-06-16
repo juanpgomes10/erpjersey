@@ -139,7 +139,7 @@ function VendasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("*, customer:customers(name), items:sale_items(quantity, product:products(name, model, team, season))")
+        .select("*, customer:customers(id, name, phone, address), items:sale_items(id, product_id, product_name_snapshot, size, quantity, unit_price, unit_cost, product:products(name, model, team, season))")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
