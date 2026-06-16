@@ -981,15 +981,27 @@ function NewImportDialog({
         value_usd: usd,
         total_value: usd * USD_BRL,
         expected_delivery: expectedDelivery ? format(expectedDelivery, "yyyy-MM-dd") : null,
+        status: "enviado",
       } as never);
       if (error) throw error;
+
+      // Quando há um código de rastreio, os pedidos vinculados passam para "enviado"
+      if (linkedOrderIds.length > 0) {
+        await supabase
+          .from("orders")
+          .update({ status: "enviado" } as never)
+          .in("id", linkedOrderIds);
+      }
+
     },
     onSuccess: () => {
-      toast.success("Importação cadastrada");
+      toast.success("Importação cadastrada — pedidos marcados como Enviado");
       qc.invalidateQueries({ queryKey: ["imports"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
       reset();
       onOpenChange(false);
     },
+
     onError: (e: Error) => {
       setUploading(false);
       toast.error(e.message);

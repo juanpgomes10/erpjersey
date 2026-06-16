@@ -20,6 +20,7 @@ import { Route as AuthenticatedEstoqueRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedClientesRouteImport } from './routes/_authenticated/clientes'
+import { Route as ApiPublicHooksRefreshTrackingsRouteImport } from './routes/api/public/hooks/refresh-trackings'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -77,6 +78,12 @@ const AuthenticatedClientesRoute = AuthenticatedClientesRouteImport.update({
   path: '/clientes',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksRefreshTrackingsRoute =
+  ApiPublicHooksRefreshTrackingsRouteImport.update({
+    id: '/api/public/hooks/refresh-trackings',
+    path: '/api/public/hooks/refresh-trackings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/pedidos': typeof AuthenticatedPedidosRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/api/public/hooks/refresh-trackings': typeof ApiPublicHooksRefreshTrackingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/importacoes': typeof AuthenticatedImportacoesRoute
   '/pedidos': typeof AuthenticatedPedidosRoute
   '/vendas': typeof AuthenticatedVendasRoute
+  '/api/public/hooks/refresh-trackings': typeof ApiPublicHooksRefreshTrackingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/importacoes': typeof AuthenticatedImportacoesRoute
   '/_authenticated/pedidos': typeof AuthenticatedPedidosRoute
   '/_authenticated/vendas': typeof AuthenticatedVendasRoute
+  '/api/public/hooks/refresh-trackings': typeof ApiPublicHooksRefreshTrackingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/importacoes'
     | '/pedidos'
     | '/vendas'
+    | '/api/public/hooks/refresh-trackings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/importacoes'
     | '/pedidos'
     | '/vendas'
+    | '/api/public/hooks/refresh-trackings'
   id:
     | '__root__'
     | '/'
@@ -154,12 +166,14 @@ export interface FileRouteTypes {
     | '/_authenticated/importacoes'
     | '/_authenticated/pedidos'
     | '/_authenticated/vendas'
+    | '/api/public/hooks/refresh-trackings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksRefreshTrackingsRoute: typeof ApiPublicHooksRefreshTrackingsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -241,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/refresh-trackings': {
+      id: '/api/public/hooks/refresh-trackings'
+      path: '/api/public/hooks/refresh-trackings'
+      fullPath: '/api/public/hooks/refresh-trackings'
+      preLoaderRoute: typeof ApiPublicHooksRefreshTrackingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -273,6 +294,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksRefreshTrackingsRoute: ApiPublicHooksRefreshTrackingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -128,13 +128,33 @@ export const registerTracking = createServerFn({ method: "POST" })
 // ───────────────────────── REFRESH ONE ─────────────────────────
 const refreshOneSchema = z.object({ importId: z.string().uuid() });
 
-async function refreshOneInternal(
-  supabase: ReturnType<typeof getApiKey> extends string ? never : never,
-) {
-  // Just a type marker; real impl is inline below.
-  void supabase;
+// Mapeia status de importação → status de pedido (orders)
+function importStatusToOrderStatus(s: ImportStatus): "enviado" | "entregue" | null {
+  if (s === "entregue") return "entregue";
+  if (
+    s === "enviado" ||
+    s === "em_transito" ||
+    s === "chegou_brasil" ||
+    s === "aguardando_taxa" ||
+    s === "saiu_entrega"
+  ) {
+    return "enviado";
+  }
+  return null;
 }
-void refreshOneInternal;
+
+// Propaga status para os pedidos vinculados a uma importação.
+async function propagateToOrders(
+  supabase: { from: (t: string) => { update: (v: unknown) => { in: (c: string, ids: string[]) => Promise<unknown> } } },
+  linkedOrderIds: string[] | null | undefined,
+  mappedImportStatus: ImportStatus | null,
+) {
+  if (!linkedOrderIds?.length || !mappedImportStatus) return;
+  const orderStatus = importStatusToOrderStatus(mappedImportStatus);
+  if (!orderStatus) return;
+  await supabase.from("orders").update({ status: orderStatus }).in("id", linkedOrderIds);
+}
+
 
 export const refreshTracking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -145,11 +165,12 @@ export const refreshTracking = createServerFn({ method: "POST" })
 
     const { data: imp, error } = await supabase
       .from("imports")
-      .select("id, store_id, tracking_code, carrier, status")
+      .select("id, store_id, tracking_code, carrier, status, linked_order_ids")
       .eq("id", data.importId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!imp?.tracking_code) throw new Error("Importação sem código de rastreamento.");
+
 
     // garante registro (idempotente)
     await callTrack17("register", [{ number: imp.tracking_code }], apiKey).catch(() => null);
@@ -204,8 +225,16 @@ export const refreshTracking = createServerFn({ method: "POST" })
       }
     }
 
+    // Propaga status para os pedidos vinculados
+    await propagateToOrders(
+      supabase as unknown as Parameters<typeof propagateToOrders>[0],
+      (imp as unknown as { linked_order_ids?: string[] | null }).linked_order_ids ?? null,
+      mapped,
+    );
+
     return { events, status: mapped ?? rawStatus };
   });
+
 
 // ───────────────────────── REFRESH ALL ─────────────────────────
 export const refreshAllTrackings = createServerFn({ method: "POST" })
@@ -217,7 +246,8 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
     // Apenas as ativas (não entregues nem barradas/canceladas)
     const { data: list, error } = await supabase
       .from("imports")
-      .select("id, store_id, tracking_code, carrier, status")
+      .select("id, store_id, tracking_code, carrier, status, linked_order_ids")
+
       .not("tracking_code", "is", null)
       .not("status", "in", "(entregue,cancelado,barrado_alfandega)");
     if (error) throw new Error(error.message);
@@ -287,7 +317,13 @@ export const refreshAllTrackings = createServerFn({ method: "POST" })
           } as never);
         }
       }
+      await propagateToOrders(
+        supabase as unknown as Parameters<typeof propagateToOrders>[0],
+        (imp as unknown as { linked_order_ids?: string[] | null }).linked_order_ids ?? null,
+        mapped,
+      );
       updated += 1;
     }
+
     return { updated, total: list.length };
   });
