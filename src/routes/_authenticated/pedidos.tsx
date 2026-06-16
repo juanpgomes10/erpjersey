@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { useProfile } from "@/hooks/use-profile";
 
-type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+type SizeOpt = Database["public"]["Enums"]["product_size"];
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
 type DisplayStatus = OrderStatus | "envio_pendente";
 
