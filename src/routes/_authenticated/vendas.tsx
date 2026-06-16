@@ -1194,8 +1194,8 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
 
       // Propaga para o pedido vinculado
       if (sale.order_id) {
-        const orderStatus: "pago" | "pendente" =
-          src === "estoque" || trackingTrim ? "pago" : "pendente";
+        const orderStatus: "pago" | "pendente" | "enviado" =
+          trackingTrim ? "enviado" : src === "estoque" ? "pago" : "pendente";
         await supabase
           .from("orders")
           .update({
