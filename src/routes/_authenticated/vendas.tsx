@@ -1134,6 +1134,7 @@ type SaleRow = {
   store_id: string;
   customer_name_snapshot: string | null;
   customer: { name: string } | null;
+  created_at?: string | null;
 };
 
 function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () => void }) {
@@ -1145,6 +1146,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
   const [paid, setPaid] = useState("");
   const [net, setNet] = useState("");
   const [obs, setObs] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
 
   useEffect(() => {
     if (!sale) return;
@@ -1160,6 +1162,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
     setPaid(String(sale.total_value ?? ""));
     setNet(sale.net_value != null ? String(sale.net_value) : "");
     setObs(sale.notes ?? "");
+    setCreatedAt(sale.created_at ? String(sale.created_at).slice(0, 10) : "");
   }, [sale]);
 
   const save = useMutation({
@@ -1169,6 +1172,10 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       const supplierTrim = supplier.trim();
       const paidValue = Number(paid) || 0;
       const netValue = Number(net) || paidValue;
+
+      const createdAtIso = createdAt
+        ? new Date(`${createdAt}T12:00:00`).toISOString()
+        : null;
 
       const { error } = await supabase
         .from("sales")
@@ -1180,6 +1187,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
           total_value: paidValue,
           net_value: netValue,
           notes: obs || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", sale.id);
       if (error) throw error;
@@ -1198,6 +1206,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
             total_value: paidValue,
             notes: obs || null,
             status: orderStatus,
+            ...(createdAtIso ? { created_at: createdAtIso } : {}),
           } as never)
           .eq("id", sale.order_id);
 
@@ -1302,6 +1311,14 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
                 ))}
               </SelectContent>
             </Select>
+          </section>
+
+          <section>
+            <Label>Data da compra</Label>
+            <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ajuste a data caso a venda tenha sido feita em outro dia.
+            </p>
           </section>
 
           <section>

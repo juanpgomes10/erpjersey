@@ -467,6 +467,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
   const [src, setSrc] = useState<SourceKey>("estoque");
   const [supplier, setSupplier] = useState("");
   const [tracking, setTracking] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
 
   useEffect(() => {
     if (!order) return;
@@ -478,6 +479,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
     setSrc(normalized);
     setSupplier(order.supplier_name ?? "");
     setTracking(order.tracking_code ?? "");
+    setCreatedAt(order.created_at ? String(order.created_at).slice(0, 10) : "");
   }, [order]);
 
   const changeStatus = useMutation({
@@ -506,6 +508,9 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       const supplierTrim = supplier.trim();
       const newStatus: OrderStatus =
         order.status === "pendente" && (src === "estoque" || trackingTrim) ? "pago" : order.status;
+      const createdAtIso = createdAt
+        ? new Date(`${createdAt}T12:00:00`).toISOString()
+        : null;
 
       const { error } = await supabase
         .from("orders")
@@ -514,6 +519,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
           status: newStatus,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", order.id);
       if (error) throw error;
@@ -524,6 +530,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           source: src,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("order_id", order.id);
 
@@ -708,6 +715,13 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                 <Input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="Ex.: LP123456789CN" />
                 <p className="mt-1 text-xs text-muted-foreground">
                   Você pode preencher isso depois. Ao informar, é vinculado à página de Importações.
+                </p>
+              </div>
+              <div>
+                <Label>Data da compra</Label>
+                <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ajuste caso o pedido tenha sido feito em outro dia.
                 </p>
               </div>
               <Button className="w-full" onClick={() => saveSupplier.mutate()} disabled={saveSupplier.isPending}>
