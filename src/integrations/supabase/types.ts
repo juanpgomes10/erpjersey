@@ -437,8 +437,10 @@ export type Database = {
           created_at: string
           customer_id: string | null
           delivered_at: string | null
+          delivery_method: string | null
           discount: number
           external_id: string | null
+          fulfillment_status: string | null
           id: string
           notes: string | null
           order_number: number | null
@@ -460,8 +462,10 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           delivered_at?: string | null
+          delivery_method?: string | null
           discount?: number
           external_id?: string | null
+          fulfillment_status?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
@@ -483,8 +487,10 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           delivered_at?: string | null
+          delivery_method?: string | null
           discount?: number
           external_id?: string | null
+          fulfillment_status?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
@@ -712,6 +718,8 @@ export type Database = {
           created_at: string
           customer_id: string | null
           customer_name_snapshot: string | null
+          delivery_method: string | null
+          fulfillment_status: string | null
           id: string
           net_value: number
           notes: string | null
@@ -731,6 +739,8 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_name_snapshot?: string | null
+          delivery_method?: string | null
+          fulfillment_status?: string | null
           id?: string
           net_value?: number
           notes?: string | null
@@ -750,6 +760,8 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           customer_name_snapshot?: string | null
+          delivery_method?: string | null
+          fulfillment_status?: string | null
           id?: string
           net_value?: number
           notes?: string | null

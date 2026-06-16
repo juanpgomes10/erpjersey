@@ -50,6 +50,40 @@ const sourceLabel = (s: string) => {
   return f?.label ?? s;
 };
 
+type DeliveryMethod = "entrega_particular" | "motoboy_app" | "retirada_loja";
+const DELIVERY_METHOD_OPTIONS: { value: DeliveryMethod; label: string }[] = [
+  { value: "entrega_particular", label: "Entrega particular" },
+  { value: "motoboy_app", label: "Motoboy / app" },
+  { value: "retirada_loja", label: "Retirada na loja" },
+];
+
+type FulfillmentStatus =
+  | "aguardando_fornecedor"
+  | "aguardando_envio_fornecedor"
+  | "enviado"
+  | "aguardando_retirada"
+  | "entregue";
+
+const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
+  { value: "aguardando_fornecedor", label: "Aguardando fazer pedido com fornecedor" },
+  { value: "aguardando_envio_fornecedor", label: "Aguardando envio do fornecedor" },
+  { value: "enviado", label: "Enviado" },
+  { value: "aguardando_retirada", label: "Aguardando retirada do cliente" },
+  { value: "entregue", label: "Entregue" },
+];
+
+// Mapeia o status visual escolhido pelo usuário para o status canônico do pedido,
+// que alimenta os filtros existentes (pendente / pago / enviado / entregue).
+function fulfillmentToOrderStatus(f: FulfillmentStatus): "pendente" | "pago" | "enviado" | "entregue" {
+  switch (f) {
+    case "aguardando_fornecedor": return "pendente";
+    case "aguardando_envio_fornecedor": return "pago";
+    case "enviado": return "enviado";
+    case "aguardando_retirada": return "enviado";
+    case "entregue": return "entregue";
+  }
+}
+
 // Helper para vincular pedido a uma importação (upsert)
 async function linkOrderToImport(opts: {
   storeId: string;
@@ -267,6 +301,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [source, setSource] = useState<SourceKey>("estoque");
   const [supplierName, setSupplierName] = useState("");
   const [trackingCode, setTrackingCode] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | "">("");
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<FulfillmentStatus | "">("");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
   const [shippingCostStr, setShippingCostStr] = useState("");
@@ -305,6 +341,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       setSource("estoque");
       setSupplierName("");
       setTrackingCode("");
+      setDeliveryMethod("");
+      setFulfillmentStatus("");
       setPaidValueStr("");
       setNetValueStr("");
       setShippingCostStr("");
@@ -396,6 +434,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       if (!profile?.store_id) throw new Error("Sem loja vinculada");
       if (cart.length === 0) throw new Error("Adicione ao menos um produto");
       if (!customerValid) throw new Error("Selecione ou cadastre um cliente");
+      if (!fulfillmentStatus) throw new Error("Selecione o status atual do pedido");
 
       // 1. Cliente
       let finalCustomerId: string | null = customerId;
@@ -433,8 +472,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       // 2. Pedido (sempre criar — toda venda gera um pedido)
       const trackingTrim = trackingCode.trim();
       const supplierTrim = supplierName.trim();
-      const orderStatus: "pago" | "pendente" | "enviado" =
-        trackingTrim ? "enviado" : source === "estoque" ? "pago" : "pendente";
+      const orderStatus = fulfillmentToOrderStatus(fulfillmentStatus as FulfillmentStatus);
 
       const { data: order, error: orderErr } = await supabase
         .from("orders")
@@ -449,6 +487,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           source,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          delivery_method: deliveryMethod || null,
+          fulfillment_status: fulfillmentStatus,
           shipping_cost: shippingCost,
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
@@ -481,6 +521,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           source,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          delivery_method: deliveryMethod || null,
+          fulfillment_status: fulfillmentStatus,
           order_id: order.id,
           profit,
           payment_method: paymentMethod as never,
@@ -760,9 +802,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           </section>
 
 
-          {/* 3. FORNECEDOR / ORIGEM */}
+          {/* 3. LOGÍSTICA */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">3. Fornecedor</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">3. Logística</h3>
             <Tabs value={source} onValueChange={(v) => setSource(v as SourceKey)}>
               <TabsList className="grid w-full grid-cols-3">
                 {SOURCE_TABS.map((t) => (
@@ -798,17 +840,62 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               <Label>Código de rastreamento</Label>
               <Input
                 value={trackingCode}
-                onChange={(e) => setTrackingCode(e.target.value)}
+                onChange={(e) => {
+                  setTrackingCode(e.target.value);
+                  if (e.target.value.trim()) setDeliveryMethod("");
+                }}
                 placeholder="Ex.: LP123456789CN"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Se informado, o código é vinculado automaticamente à página de Importações.
+              </p>
             </div>
 
-            <p className="mt-2 text-xs text-muted-foreground">
-              Você pode preencher isso depois. Vendas sem código de rastreamento vão para{" "}
-              <span className="font-medium">Pedidos Pendentes</span>. Se informado, o código é
-              vinculado automaticamente à página de Importações.
-            </p>
+            <div className="mt-3 rounded-md border border-dashed border-border p-3">
+              <Label className="mb-1.5 block">Venda sem código de rastreamento</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Selecione a forma de entrega quando não houver rastreio.
+              </p>
+              <Select
+                value={deliveryMethod || undefined}
+                onValueChange={(v) => {
+                  setDeliveryMethod(v as DeliveryMethod);
+                  if (v) setTrackingCode("");
+                }}
+                disabled={!!trackingCode.trim()}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de entrega" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_METHOD_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4">
+              <Label>Status atual do pedido*</Label>
+              <Select
+                value={fulfillmentStatus || undefined}
+                onValueChange={(v) => setFulfillmentStatus(v as FulfillmentStatus)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status atual" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FULFILLMENT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Esse status alimenta os filtros do sistema (pendente, enviado, entregue, etc.).
+              </p>
+            </div>
           </section>
+
 
           {/* 4. PAGAMENTO */}
           <section>
@@ -883,7 +970,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0 || !customerValid}>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || cart.length === 0 || !customerValid || !fulfillmentStatus}>
             {save.isPending ? "Salvando..." : "Confirmar venda"}
           </Button>
         </DialogFooter>
