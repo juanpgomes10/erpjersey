@@ -574,18 +574,21 @@ function DashboardPage() {
             value={data?.avgDeliveryDays ? `${data.avgDeliveryDays} dias` : "—"}
             loading={isLoading}
             icon={Plane}
+            to="/importacoes"
           />
           <Kpi
             label="ENTREGUES NO PERÍODO"
             value={String(data?.deliveredCount ?? 0)}
             loading={isLoading}
             icon={Package}
+            to="/importacoes"
           />
           <Kpi
             label="GASTO COM IMPORTAÇÕES"
             value={fmtBRL(data?.importsGastoBRL)}
             loading={isLoading}
             icon={DollarSign}
+            to="/importacoes"
           />
           <Kpi
             label="TRIBUTOS PENDENTES"
@@ -593,6 +596,7 @@ function DashboardPage() {
             loading={isLoading}
             icon={AlertTriangle}
             variant="warning"
+            to="/importacoes"
           />
         </div>
 
