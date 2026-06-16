@@ -802,9 +802,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           </section>
 
 
-          {/* 3. FORNECEDOR / ORIGEM */}
+          {/* 3. LOGÍSTICA */}
           <section>
-            <h3 className="font-sora text-sm font-semibold mb-2">3. Fornecedor</h3>
+            <h3 className="font-sora text-sm font-semibold mb-2">3. Logística</h3>
             <Tabs value={source} onValueChange={(v) => setSource(v as SourceKey)}>
               <TabsList className="grid w-full grid-cols-3">
                 {SOURCE_TABS.map((t) => (
@@ -840,17 +840,62 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
               <Label>Código de rastreamento</Label>
               <Input
                 value={trackingCode}
-                onChange={(e) => setTrackingCode(e.target.value)}
+                onChange={(e) => {
+                  setTrackingCode(e.target.value);
+                  if (e.target.value.trim()) setDeliveryMethod("");
+                }}
                 placeholder="Ex.: LP123456789CN"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Se informado, o código é vinculado automaticamente à página de Importações.
+              </p>
             </div>
 
-            <p className="mt-2 text-xs text-muted-foreground">
-              Você pode preencher isso depois. Vendas sem código de rastreamento vão para{" "}
-              <span className="font-medium">Pedidos Pendentes</span>. Se informado, o código é
-              vinculado automaticamente à página de Importações.
-            </p>
+            <div className="mt-3 rounded-md border border-dashed border-border p-3">
+              <Label className="mb-1.5 block">Venda sem código de rastreamento</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Selecione a forma de entrega quando não houver rastreio.
+              </p>
+              <Select
+                value={deliveryMethod || undefined}
+                onValueChange={(v) => {
+                  setDeliveryMethod(v as DeliveryMethod);
+                  if (v) setTrackingCode("");
+                }}
+                disabled={!!trackingCode.trim()}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a forma de entrega" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DELIVERY_METHOD_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="mt-4">
+              <Label>Status atual do pedido*</Label>
+              <Select
+                value={fulfillmentStatus || undefined}
+                onValueChange={(v) => setFulfillmentStatus(v as FulfillmentStatus)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status atual" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FULFILLMENT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Esse status alimenta os filtros do sistema (pendente, enviado, entregue, etc.).
+              </p>
+            </div>
           </section>
+
 
           {/* 4. PAGAMENTO */}
           <section>
