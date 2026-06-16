@@ -742,9 +742,9 @@ function NewTransactionDialog({
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={submit} disabled={saving} className="bg-[color:#2563EB] hover:bg-[color:#1D4ED8]">
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancelar</Button>
+          <Button onClick={submit} disabled={saving} className="w-full sm:w-auto bg-[color:#2563EB] hover:bg-[color:#1D4ED8]">
             {saving ? "Salvando..." : "Salvar"}
           </Button>
         </DialogFooter>
