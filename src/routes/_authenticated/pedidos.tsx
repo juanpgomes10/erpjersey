@@ -508,6 +508,9 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
       const supplierTrim = supplier.trim();
       const newStatus: OrderStatus =
         order.status === "pendente" && (src === "estoque" || trackingTrim) ? "pago" : order.status;
+      const createdAtIso = createdAt
+        ? new Date(`${createdAt}T12:00:00`).toISOString()
+        : null;
 
       const { error } = await supabase
         .from("orders")
@@ -516,6 +519,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
           status: newStatus,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("id", order.id);
       if (error) throw error;
@@ -526,6 +530,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
           source: src,
           supplier_name: supplierTrim || null,
           tracking_code: trackingTrim || null,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         } as never)
         .eq("order_id", order.id);
 
