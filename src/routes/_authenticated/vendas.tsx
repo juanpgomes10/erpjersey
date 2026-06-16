@@ -1145,6 +1145,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
   const [paid, setPaid] = useState("");
   const [net, setNet] = useState("");
   const [obs, setObs] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
 
   useEffect(() => {
     if (!sale) return;
@@ -1160,6 +1161,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
     setPaid(String(sale.total_value ?? ""));
     setNet(sale.net_value != null ? String(sale.net_value) : "");
     setObs(sale.notes ?? "");
+    setCreatedAt(sale.created_at ? String(sale.created_at).slice(0, 10) : "");
   }, [sale]);
 
   const save = useMutation({
