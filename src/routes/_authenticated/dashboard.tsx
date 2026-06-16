@@ -395,14 +395,15 @@ function DashboardPage() {
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Faturamento" value={fmtBRL(data?.faturamento)} loading={isLoading} icon={DollarSign} />
-        <Kpi label="LUCRO BRUTO" value={fmtBRL(data?.lucro)} loading={isLoading} icon={TrendingUp} />
-        <Kpi label="Vendas" value={String(data?.vendas ?? 0)} loading={isLoading} icon={ShoppingBag} />
+        <Kpi label="Faturamento" value={fmtBRL(data?.faturamento)} loading={isLoading} icon={DollarSign} to="/financeiro" />
+        <Kpi label="LUCRO BRUTO" value={fmtBRL(data?.lucro)} loading={isLoading} icon={TrendingUp} to="/financeiro" />
+        <Kpi label="Vendas" value={String(data?.vendas ?? 0)} loading={isLoading} icon={ShoppingBag} to="/vendas" />
         <Kpi
           label="Ticket médio"
           value={fmtBRL(data && data.vendas ? data.faturamento / data.vendas : 0)}
           loading={isLoading}
           icon={BarChart3}
+          to="/vendas"
         />
       </div>
 
@@ -413,13 +414,15 @@ function DashboardPage() {
           loading={isLoading}
           icon={AlertTriangle}
           variant="warning"
+          to="/pedidos"
         />
-        <Kpi label="Clientes" value={String(data?.clientes ?? 0)} loading={isLoading} icon={Users} />
+        <Kpi label="Clientes" value={String(data?.clientes ?? 0)} loading={isLoading} icon={Users} to="/clientes" />
         <Kpi
           label="IMPORTAÇÕES EM ANDAMENTO"
           value={String(data?.importacoesAndamento ?? 0)}
           loading={isLoading}
           icon={Plane}
+          to="/importacoes"
         />
       </div>
 
