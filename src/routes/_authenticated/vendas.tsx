@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { modelShortLabel } from "./estoque";
+import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { buildProductLabel } from "@/lib/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,7 +34,8 @@ import {
 } from "@/components/ui/select";
 import { useProfile } from "@/hooks/use-profile";
 
-type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+import type { Database } from "@/integrations/supabase/types";
+type SizeOpt = Database["public"]["Enums"]["product_size"];
 type SourceKey = "estoque" | "fornecedor_china" | "revendedor_br";
 
 const SOURCE_TABS: { value: SourceKey; label: string }[] = [
@@ -242,27 +245,9 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const qc = useQueryClient();
   const { data: profile } = useProfile();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [productSearch, setProductSearch] = useState("");
 
-  // Configurador do item (após selecionar produto)
-  type ProductLite = {
-    id: string;
-    name: string;
-    team: string | null;
-    season: string | null;
-    model?: string | null;
-    sale_price: number | string;
-    cost_price: number | string;
-    product_sizes?: Array<{ size: string; quantity: number }>;
-  };
-  const [selectedProduct, setSelectedProduct] = useState<ProductLite | null>(null);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualName, setManualName] = useState("");
-  const [manualTeam, setManualTeam] = useState("");
-  const [manualModel, setManualModel] = useState("");
-  const [manualSeason, setManualSeason] = useState("");
-  const [cfgSize, setCfgSize] = useState<SizeOpt | null>(null);
-  const [cfgGender, setCfgGender] = useState<"masculina" | "feminina" | "infantil">("masculina");
+  // Configurador do item (cascata Time → Temporada → Produto → Modelo → Gênero → Tamanho)
+  const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgCostStr, setCfgCostStr] = useState("");
   const [cfgPriceStr, setCfgPriceStr] = useState("");
   const [cfgPersonalize, setCfgPersonalize] = useState(false);
@@ -296,18 +281,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   };
   const [saleDate, setSaleDate] = useState<string>(todayStr());
 
-  // Ref para focar busca de produto ao "adicionar mais"
-  const productSearchRef = useRef<HTMLInputElement>(null);
-
   function resetConfigurator() {
-    setSelectedProduct(null);
-    setManualMode(false);
-    setManualName("");
-    setManualTeam("");
-    setManualModel("");
-    setManualSeason("");
-    setCfgSize(null);
-    setCfgGender("masculina");
+    setCascade(emptyCascadeValue());
     setCfgCostStr("");
     setCfgPriceStr("");
     setCfgPersonalize(false);
@@ -319,9 +294,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   useEffect(() => {
     if (!open) {
       setCart([]);
-      setProductSearch("");
       resetConfigurator();
-      setCustomerMode("cadastrado");
+      setCustomerMode("novo");
       setCustomerId(null);
       setCustomerSearch("");
       setNewCustomerName("");
@@ -340,19 +314,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
     }
   }, [open]);
 
-
-  const { data: products } = useQuery({
-    queryKey: ["products-search"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, model, team, season, sale_price, cost_price, product_sizes(size, quantity)")
-        .limit(300);
-      return data ?? [];
-    },
-    enabled: open,
-  });
-
   const { data: customers } = useQuery({
     queryKey: ["customers-search"],
     queryFn: async () => {
@@ -364,18 +325,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       return (data ?? []) as CustomerRow[];
     },
     enabled: open,
-  });
-
-  const filteredProducts = (products ?? []).filter((p) => {
-    if (!productSearch) return true;
-    const q = productSearch.toLowerCase();
-    const m = ((p as { model?: string | null }).model ?? "").toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.team ?? "").toLowerCase().includes(q) ||
-      (p.season ?? "").toLowerCase().includes(q) ||
-      m.includes(q)
-    );
   });
 
   const filteredCustomers = (customers ?? []).filter((c) => {
@@ -392,95 +341,51 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const totalCost = itemsCost + shippingCost;
   const profit = netValue - totalCost;
 
-  // Reflete o total automaticamente até o usuário editar
-  useEffect(() => {
-    if (paidValueStr === "") return;
-    // se usuário ainda não tocou, nada a fazer
-  }, [paidValueStr]);
-
-  const productLabel = (p: { name: string; team: string | null; season: string | null; model?: string | null }) =>
-    [modelShortLabel(p.model ?? null), p.team, p.season].filter(Boolean).join(" · ") || p.name;
-
-  function selectProduct(p: NonNullable<typeof products>[number]) {
-    const pp = p as typeof p & { model?: string | null };
-    setSelectedProduct({
-      id: p.id,
-      name: p.name,
-      team: p.team,
-      season: p.season,
-      model: pp.model ?? null,
-      sale_price: p.sale_price,
-      cost_price: p.cost_price,
-      product_sizes: p.product_sizes,
-    });
-    setManualMode(false);
-    setCfgSize(null);
-    setCfgGender("masculina");
-    setCfgCostStr(Number(p.cost_price) > 0 ? String(p.cost_price) : "");
-    setCfgPriceStr(Number(p.sale_price) > 0 ? String(p.sale_price) : "");
-  }
-
   function confirmAddItem() {
-    if (!cfgSize) {
-      toast.error("Selecione o tamanho");
-      return;
+    if (!cascade.team) { toast.error("Selecione o time / seleção"); return; }
+    if (!cascade.productType) { toast.error("Selecione o tipo de produto"); return; }
+    if (!cascade.model) { toast.error("Selecione o modelo"); return; }
+    if (cascade.model === "edicao_especial" && !cascade.specialEdition.trim()) {
+      toast.error("Informe qual edição especial"); return;
     }
+    if (!cascade.size) { toast.error("Selecione o tamanho"); return; }
     const price = Number(cfgPriceStr) || 0;
     const cost = Number(cfgCostStr) || 0;
-    if (price <= 0) {
-      toast.error("Informe o valor pago pelo cliente");
-      return;
-    }
+    if (price <= 0) { toast.error("Informe o valor pago pelo cliente"); return; }
 
-    let productId: string | null = null;
-    let baseLabel = "";
-    const stockBySize: Record<string, number> = {};
-
-    if (manualMode) {
-      const nameParts = [
-        manualName.trim() || "Camisa avulsa",
-        manualTeam.trim(),
-        manualModel.trim() ? modelShortLabel(manualModel.trim()) : "",
-        manualSeason.trim(),
-      ].filter(Boolean);
-      baseLabel = nameParts.join(" · ");
-    } else if (selectedProduct) {
-      productId = selectedProduct.id;
-      const pp = selectedProduct;
-      baseLabel = `${pp.name}${pp.team ? ` — ${pp.team}` : ""}${pp.model ? ` · ${modelShortLabel(pp.model)}` : ""}${pp.season ? ` · ${pp.season}` : ""}`;
-      pp.product_sizes?.forEach((s) => { stockBySize[s.size] = s.quantity; });
-    } else {
-      return;
-    }
-
-    const genderLabel = cfgGender === "masculina" ? "Masc." : cfgGender === "feminina" ? "Fem." : "Infantil";
+    const baseLabel = buildProductLabel({
+      team: cascade.team,
+      season: cascade.season,
+      productType: cascade.productType,
+      model: cascade.model,
+      specialEdition: cascade.specialEdition,
+      gender: cascade.gender,
+    });
     const personParts: string[] = [];
     if (cfgPersonalize) {
       if (cfgPersonName.trim()) personParts.push(`Nome: ${cfgPersonName.trim()}`);
       if (cfgPersonNumber.trim()) personParts.push(`Nº ${cfgPersonNumber.trim()}`);
     }
     const personSuffix = personParts.length ? ` · Personalização (${personParts.join(", ")})` : "";
-    const fullLabel = `${baseLabel} · ${genderLabel}${personSuffix}`;
-
+    const fullLabel = `${baseLabel}${personSuffix}`;
 
     setCart((prev) => [
       ...prev,
       {
-        productId,
+        productId: null,
         productName: fullLabel,
-        size: cfgSize,
-        gender: cfgGender,
+        size: cascade.size as SizeOpt,
+        gender: cascade.gender,
         quantity: 1,
         unitPrice: price,
         unitCost: cost,
-        stockBySize,
+        stockBySize: {},
       },
     ]);
 
     resetConfigurator();
-    setProductSearch("");
-    setTimeout(() => productSearchRef.current?.focus(), 0);
   }
+
 
   const customerValid = useMemo(() => {
     if (customerMode === "cadastrado") return !!customerId;
@@ -730,182 +635,65 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             <h3 className="font-sora text-sm font-semibold mb-2">
               2. Produtos {cart.length > 0 && <span className="font-normal text-muted-foreground">({cart.length} no carrinho)</span>}
             </h3>
-            <Input
-              ref={productSearchRef}
-              placeholder="Buscar por time, modelo (1/2/3) ou temporada..."
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-            />
-            {productSearch && !selectedProduct && !manualMode && (
-              <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-border">
-                {filteredProducts.length === 0 ? (
-                  <p className="p-3 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
-                ) : (
-                  filteredProducts.map((p) => {
-                    const pp = p as typeof p & { model?: string | null };
-                    return (
+
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-4 space-y-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Configurar item</p>
+
+              <ProductCascade value={cascade} onChange={setCascade} />
+
+              <div className="rounded-md border border-border bg-background/40 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-sm">Personalização</Label>
+                    <p className="text-xs text-muted-foreground">Nome e número estampados.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {([["nao","Não"],["sim","Sim"]] as const).map(([k,l]) => (
                       <button
-                        key={p.id}
+                        key={k}
                         type="button"
-                        onClick={() => selectProduct(p)}
-                        className="flex w-full items-center justify-between gap-3 border-b border-border p-3 text-left last:border-none hover:bg-accent"
+                        onClick={() => {
+                          const v = k === "sim";
+                          setCfgPersonalize(v);
+                          if (!v) { setCfgPersonName(""); setCfgPersonNumber(""); }
+                        }}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${(cfgPersonalize ? "sim" : "nao") === k ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{productLabel(pp)}</p>
-                          <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Selecionar →</span>
-                      </button>
-                    );
-                  })
-                )}
-                <button
-                  type="button"
-                  onClick={() => { setManualMode(true); setSelectedProduct(null); setCfgSize(null); setCfgGender("masculina"); setCfgCostStr(""); setCfgPriceStr(""); }}
-                  className="flex w-full items-center gap-2 border-t border-border bg-muted/40 p-3 text-left text-sm font-medium hover:bg-accent"
-                >
-                  <Plus className="h-4 w-4" /> Não encontrou? Criar novo produto
-                </button>
-              </div>
-            )}
-
-            {/* Configurador */}
-            {(selectedProduct || manualMode) && (
-              <div className="mt-3 rounded-md border border-primary/40 bg-primary/5 p-4 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Configurar item</p>
-                    <p className="text-sm font-medium truncate">
-                      {manualMode ? "Novo produto avulso" : productLabel(selectedProduct!)}
-                    </p>
-                  </div>
-                  <Button type="button" variant="ghost" size="icon" onClick={resetConfigurator}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {manualMode && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Nome / descrição*</Label>
-                      <Input value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="Ex.: Camisa retrô" />
-                    </div>
-                    <div>
-                      <Label>Time</Label>
-                      <Input value={manualTeam} onChange={(e) => setManualTeam(e.target.value)} placeholder="Ex.: Flamengo" />
-                    </div>
-                    <div>
-                      <Label>Modelo</Label>
-                      <Input value={manualModel} onChange={(e) => setManualModel(e.target.value)} placeholder="1, 2, 3 ou edição especial" />
-                    </div>
-                    <div>
-                      <Label>Temporada</Label>
-                      <Input value={manualSeason} onChange={(e) => setManualSeason(e.target.value)} placeholder="2024/2025" />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label className="mb-1.5 block">Tamanho*</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => setCfgSize(sz)}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
-
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-1.5 block">Gênero*</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["masculina", "feminina", "infantil"] as const).map((g) => (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => setCfgGender(g)}
-                        className={`rounded-md border px-3 py-1.5 text-xs font-medium capitalize transition ${cfgGender === g ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-                      >
-                        {g}
+                        {l}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                <div className="rounded-md border border-border bg-background/40 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
+                {cfgPersonalize && (
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <Label className="text-sm">Personalização</Label>
-                      <p className="text-xs text-muted-foreground">Nome e número estampados na camisa.</p>
+                      <Label>Nome</Label>
+                      <Input value={cfgPersonName} onChange={(e) => setCfgPersonName(e.target.value)} placeholder="Nome" />
                     </div>
-                    <div className="flex gap-2">
-                      {([["nao","Não"],["sim","Sim"]] as const).map(([k,l]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => {
-                            const v = k === "sim";
-                            setCfgPersonalize(v);
-                            if (!v) { setCfgPersonName(""); setCfgPersonNumber(""); }
-                          }}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${(cfgPersonalize ? "sim" : "nao") === k ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-                        >
-                          {l}
-                        </button>
-                      ))}
+                    <div>
+                      <Label>Número</Label>
+                      <Input value={cfgPersonNumber} onChange={(e) => setCfgPersonNumber(e.target.value)} placeholder="Ex.: 10" inputMode="numeric" />
                     </div>
                   </div>
-                  {cfgPersonalize && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label>Nome</Label>
-                        <Input value={cfgPersonName} onChange={(e) => setCfgPersonName(e.target.value)} placeholder="Nome" />
-                      </div>
-                      <div>
-                        <Label>Número</Label>
-                        <Input value={cfgPersonNumber} onChange={(e) => setCfgPersonNumber(e.target.value)} placeholder="Ex.: 10" inputMode="numeric" />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                )}
+              </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Custo aproximado (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={cfgCostStr}
-                      onChange={(e) => setCfgCostStr(e.target.value)}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div>
-                    <Label>Valor pago pelo cliente (R$)*</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={cfgPriceStr}
-                      onChange={(e) => setCfgPriceStr(e.target.value)}
-                      placeholder="0,00"
-                    />
-                  </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Custo aproximado (R$)</Label>
+                  <Input type="number" step="0.01" value={cfgCostStr} onChange={(e) => setCfgCostStr(e.target.value)} placeholder="0,00" />
                 </div>
-
-                <div className="flex justify-end gap-2 pt-1">
-                  <Button type="button" variant="outline" onClick={resetConfigurator}>Cancelar</Button>
-                  <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
+                <div>
+                  <Label>Valor pago pelo cliente (R$)*</Label>
+                  <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} placeholder="0,00" />
                 </div>
               </div>
-            )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={resetConfigurator}>Limpar</Button>
+                <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
+              </div>
+            </div>
 
             {/* Carrinho */}
             {cart.length > 0 && (
@@ -970,22 +758,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 ))}
               </div>
             )}
-
-            {cart.length > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-3 w-full border-dashed"
-                onClick={() => {
-                  setProductSearch("");
-                  setTimeout(() => productSearchRef.current?.focus(), 0);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Adicionar outro produto
-              </Button>
-            )}
           </section>
+
 
           {/* 3. FORNECEDOR / ORIGEM */}
           <section>
