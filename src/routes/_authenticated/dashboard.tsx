@@ -765,7 +765,7 @@ function Kpi({
   );
   if (to) {
     return (
-      <Link to={to} className="block">
+      <Link to={to as never} className="block">
         {card}
       </Link>
     );
