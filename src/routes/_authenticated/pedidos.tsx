@@ -717,6 +717,13 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
                   Você pode preencher isso depois. Ao informar, é vinculado à página de Importações.
                 </p>
               </div>
+              <div>
+                <Label>Data da compra</Label>
+                <Input type="date" value={createdAt} onChange={(e) => setCreatedAt(e.target.value)} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Ajuste caso o pedido tenha sido feito em outro dia.
+                </p>
+              </div>
               <Button className="w-full" onClick={() => saveSupplier.mutate()} disabled={saveSupplier.isPending}>
                 {saveSupplier.isPending ? "Salvando..." : "Salvar alterações"}
               </Button>
