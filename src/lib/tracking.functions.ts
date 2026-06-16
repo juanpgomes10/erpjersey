@@ -35,11 +35,24 @@ const STATUS_NOTIFICATION: Record<string, { title: string; type: "info" | "urgen
 };
 
 function getApiKey() {
-  const k = process.env["17TRACK_API_KEY"] ?? process.env.SEVENTEENTRACK_API_KEY;
-  if (!k) {
-    throw new Error("Integração de rastreamento não configurada (17TRACK_API_KEY).");
+  // Cloudflare Workers nem sempre expõem variáveis cujo nome começa com dígito
+  // (como "17TRACK_API_KEY") em process.env. Procuramos de forma resiliente.
+  const env = (process.env ?? {}) as Record<string, string | undefined>;
+  const candidates = [
+    env["17TRACK_API_KEY"],
+    env.SEVENTEENTRACK_API_KEY,
+    env.SEVENTEEN_TRACK_API_KEY,
+    env.TRACK17_API_KEY,
+    env.TRACKING_API_KEY,
+  ];
+  for (const c of candidates) if (c) return c;
+  // varredura: qualquer variável que contenha "17track" ou "track_api_key"
+  for (const [name, value] of Object.entries(env)) {
+    if (!value) continue;
+    const n = name.toLowerCase();
+    if (n.includes("17track") || n.endsWith("track_api_key")) return value;
   }
-  return k;
+  throw new Error("Integração de rastreamento não configurada (17TRACK_API_KEY).");
 }
 
 function mapStatus(status: string, sub: string): ImportStatus | null {
