@@ -733,15 +733,17 @@ function Kpi({
   icon: Icon,
   loading,
   variant,
+  to,
 }: {
   label: string;
   value: string;
   icon: typeof DollarSign;
   loading?: boolean;
   variant?: "warning";
+  to?: string;
 }) {
-  return (
-    <Card>
+  const card = (
+    <Card className={to ? "cursor-pointer transition hover:border-primary/40 hover:shadow-sm" : undefined}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -761,6 +763,14 @@ function Kpi({
       </CardContent>
     </Card>
   );
+  if (to) {
+    return (
+      <Link to={to} className="block">
+        {card}
+      </Link>
+    );
+  }
+  return card;
 }
 
 function EmptyChart({ label }: { label: string }) {
