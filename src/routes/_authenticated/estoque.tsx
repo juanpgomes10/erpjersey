@@ -26,13 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { ProductCascade, type ProductCascadeValue } from "@/components/product/product-cascade";
 import {
   SIZES_ADULT,
   SIZES_KIDS,
   buildProductLabel,
-  teamLabel,
-  productTypeLabel,
   modelLabel as cascadeModelLabel,
   sizesForGender,
   PRODUCT_TYPES,
