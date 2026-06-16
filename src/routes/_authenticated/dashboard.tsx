@@ -130,7 +130,7 @@ function DashboardPage() {
           supabase
             .from("orders")
             .select("id", { count: "exact", head: true })
-            .eq("status", "pendente"),
+            .in("status", ["pendente", "pago"]),
           supabase
             .from("imports")
             .select("id, status, supplier, country, total_value, customs_fee, created_at, updated_at"),
