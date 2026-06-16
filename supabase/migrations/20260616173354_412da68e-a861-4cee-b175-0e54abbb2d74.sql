@@ -1,0 +1,12 @@
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS 'PP' BEFORE 'P';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '2GG';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '3GG';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '4GG';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '14';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '16';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '18';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '20';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '22';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '24';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '26';
+ALTER TYPE public.product_size ADD VALUE IF NOT EXISTS '28';

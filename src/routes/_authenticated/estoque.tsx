@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Package, Pencil, Trash2, Filter, X } from "lucide-react";
 import { toast } from "sonner";
@@ -26,19 +26,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProductCascade, type ProductCascadeValue } from "@/components/product/product-cascade";
+import {
+  SIZES_ADULT,
+  SIZES_KIDS,
+  buildProductLabel,
+  modelLabel as cascadeModelLabel,
+  sizesForGender,
+  PRODUCT_TYPES,
+} from "@/lib/teams";
+import type { Database } from "@/integrations/supabase/types";
 
-const SIZES = ["P", "M", "G", "GG", "XGG"] as const;
-type Size = (typeof SIZES)[number];
+type Size = Database["public"]["Enums"]["product_size"];
+const SIZES: readonly Size[] = [...SIZES_ADULT, ...SIZES_KIDS] as readonly Size[];
 
 export const MODEL_OPTIONS = [
   { value: "1", label: "Camisa 1 (Home / Titular)" },
   { value: "2", label: "Camisa 2 (Away / Reserva)" },
   { value: "3", label: "Camisa 3 (Third)" },
-  { value: "4", label: "Camisa 4" },
+  { value: "treino_1", label: "Camisa de treino 1" },
+  { value: "treino_2", label: "Camisa de treino 2" },
   { value: "edicao_especial", label: "Edição especial" },
 ] as const;
 
+// Mantido para o filtro existente. Os novos cadastros usam `productType` (camisa torcedor, kit infantil etc).
 export const CATEGORY_OPTIONS = [
+  ...PRODUCT_TYPES.map((p) => ({ value: p.value, label: p.label })),
   { value: "brasileiros", label: "Times brasileiros" },
   { value: "internacionais", label: "Times internacionais" },
   { value: "retro", label: "Camisas retrô" },
@@ -56,12 +69,15 @@ export const GENDER_OPTIONS = [
 
 export const modelShortLabel = (m: string | null | undefined) => {
   if (!m) return "";
+  const fromCascade = cascadeModelLabel(m);
+  if (fromCascade && fromCascade !== m) return fromCascade;
   const f = MODEL_OPTIONS.find((o) => o.value === m);
-  return f ? (m === "edicao_especial" ? "Edição especial" : `Camisa ${m}`) : m;
+  return f ? f.label : m;
 };
 
 const categoryLabel = (c: string | null | undefined) =>
   CATEGORY_OPTIONS.find((o) => o.value === c)?.label ?? null;
+
 
 export const Route = createFileRoute("/_authenticated/estoque")({
   head: () => ({ meta: [{ title: "Estoque — ERPJersey" }] }),
@@ -380,56 +396,88 @@ function ProductDialog({
 }) {
   const qc = useQueryClient();
   const { data: profile } = useProfile();
-  const [name, setName] = useState(product?.name ?? "");
-  const [team, setTeam] = useState(product?.team ?? "");
-  const [season, setSeason] = useState(product?.season ?? "");
-  const [model, setModel] = useState<string>(product?.model ?? "1");
-  const [category, setCategory] = useState<string>(product?.category ?? "brasileiros");
-  const [gender, setGender] = useState<string>(product?.gender ?? "masculina");
+
+  const [cascade, setCascade] = useState<ProductCascadeValue>(() => ({
+    team: product?.team ?? "selecao-brasil",
+    season: product?.season ?? "",
+    productType: product?.category ?? "camisa_torcedor",
+    model: product?.model ?? "1",
+    specialEdition: product?.notes ?? "",
+    gender: (product?.gender as ProductCascadeValue["gender"]) ?? "masculina",
+    size: null,
+  }));
+  const [nameOverride, setNameOverride] = useState<string>(product?.name ?? "");
+  const [nameDirty, setNameDirty] = useState<boolean>(!!product);
   const [supplier, setSupplier] = useState(product?.supplier ?? "");
   const [costPrice, setCostPrice] = useState(String(product?.cost_price ?? ""));
   const [salePrice, setSalePrice] = useState(String(product?.sale_price ?? ""));
   const [imageUrl, setImageUrl] = useState(product?.image_url ?? "");
-  
-  const [sizes, setSizes] = useState<Record<Size, string>>(() => {
-    const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
+
+  const [sizes, setSizes] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    SIZES.forEach((s) => { init[s] = "0"; });
     product?.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
     return init;
   });
 
-  // reset when reopening
-  if (open && product && product.id !== (window as unknown as { _lastP?: string })._lastP) {
-    (window as unknown as { _lastP?: string })._lastP = product.id;
-    setName(product.name); setTeam(product.team ?? ""); setSeason(product.season ?? "");
-    setModel(product.model ?? "1");
-    setCategory(product.category ?? "brasileiros");
-    setGender(product.gender ?? "masculina");
-    setSupplier(product.supplier ?? ""); setCostPrice(String(product.cost_price));
-    setSalePrice(String(product.sale_price)); setImageUrl(product.image_url ?? "");
-    
-    const init: Record<Size, string> = { P: "0", M: "0", G: "0", GG: "0", XGG: "0" };
-    product.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
+  // Reset ao trocar de produto
+  useEffect(() => {
+    if (!open) return;
+    setCascade({
+      team: product?.team ?? "selecao-brasil",
+      season: product?.season ?? "",
+      productType: product?.category ?? "camisa_torcedor",
+      model: product?.model ?? "1",
+      specialEdition: product?.notes ?? "",
+      gender: (product?.gender as ProductCascadeValue["gender"]) ?? "masculina",
+      size: null,
+    });
+    setNameOverride(product?.name ?? "");
+    setNameDirty(!!product);
+    setSupplier(product?.supplier ?? "");
+    setCostPrice(String(product?.cost_price ?? ""));
+    setSalePrice(String(product?.sale_price ?? ""));
+    setImageUrl(product?.image_url ?? "");
+    const init: Record<string, string> = {};
+    SIZES.forEach((s) => { init[s] = "0"; });
+    product?.product_sizes.forEach((s) => { init[s.size] = String(s.quantity); });
     setSizes(init);
-  }
+  }, [open, product?.id]);
+
+  const generatedName = useMemo(() => buildProductLabel({
+    team: cascade.team,
+    season: cascade.season,
+    productType: cascade.productType,
+    model: cascade.model,
+    specialEdition: cascade.specialEdition,
+    gender: cascade.gender,
+  }), [cascade]);
+
+  const effectiveName = nameDirty && nameOverride.trim() ? nameOverride : generatedName;
+
+  const stockSizes = useMemo(
+    () => sizesForGender(cascade.gender, cascade.productType),
+    [cascade.gender, cascade.productType],
+  );
 
   const save = useMutation({
     mutationFn: async () => {
       if (!profile?.store_id) throw new Error("Sem loja");
-      if (!name.trim()) throw new Error("Nome é obrigatório");
+      if (!effectiveName.trim()) throw new Error("Nome é obrigatório");
 
       const payload = {
         store_id: profile.store_id,
-        name: name.trim(),
-        team: team.trim() || null,
-        season: season.trim() || null,
-        model: model || null,
-        category: category || null,
-        gender: gender || null,
+        name: effectiveName.trim(),
+        team: cascade.team || null,
+        season: cascade.season.trim() || null,
+        model: cascade.model || null,
+        category: cascade.productType || null,
+        gender: cascade.gender || null,
         supplier: supplier.trim() || null,
         cost_price: Number(costPrice) || 0,
         sale_price: Number(salePrice) || 0,
         image_url: imageUrl.trim() || null,
-
+        notes: cascade.model === "edicao_especial" ? (cascade.specialEdition.trim() || null) : null,
       };
 
       let productId: string;
@@ -444,8 +492,8 @@ function ProductDialog({
         productId = data.id;
       }
 
-      const sizeRows = SIZES
-        .map((sz) => ({ product_id: productId, size: sz, quantity: Number(sizes[sz]) || 0 }))
+      const sizeRows = stockSizes
+        .map((sz) => ({ product_id: productId, size: sz as Size, quantity: Number(sizes[sz]) || 0 }))
         .filter((r) => r.quantity > 0);
       if (sizeRows.length > 0) {
         const { error } = await supabase.from("product_sizes").insert(sizeRows);
@@ -469,59 +517,26 @@ function ProductDialog({
         </DialogHeader>
 
         <div className="grid gap-3">
+          <ProductCascade value={cascade} onChange={setCascade} hideSize />
+
           <div>
-            <Label htmlFor="pname">Nome*</Label>
-            <Input id="pname" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Camisa Flamengo 2024 Home" />
+            <Label htmlFor="pname">Nome do produto</Label>
+            <Input
+              id="pname"
+              value={effectiveName}
+              onChange={(e) => { setNameOverride(e.target.value); setNameDirty(true); }}
+              placeholder={generatedName || "Nome gerado automaticamente"}
+            />
+            {!nameDirty && (
+              <p className="mt-1 text-xs text-muted-foreground">Gerado a partir dos campos acima. Edite se quiser.</p>
+            )}
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>Time</Label>
-              <Input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Ex: Flamengo" />
-            </div>
-            <div>
-              <Label>Temporada</Label>
-              <Input value={season} onChange={(e) => setSeason(e.target.value)} placeholder="Ex: 2024/25" />
-            </div>
-            <div>
-              <Label>Modelo</Label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MODEL_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Categoria</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Gênero</Label>
-              <Select value={gender} onValueChange={setGender}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {GENDER_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+
           <div>
             <Label>Fornecedor</Label>
             <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder="Ex: Fornecedor X" />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Custo*</Label>
@@ -540,14 +555,14 @@ function ProductDialog({
 
           <div>
             <Label>Estoque por tamanho</Label>
-            <div className="mt-2 grid grid-cols-5 gap-2">
-              {SIZES.map((sz) => (
+            <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-8">
+              {stockSizes.map((sz) => (
                 <div key={sz} className="rounded-md border border-border p-2 text-center">
                   <div className="text-xs font-medium text-muted-foreground">{sz}</div>
                   <Input
                     type="number"
                     min={0}
-                    value={sizes[sz]}
+                    value={sizes[sz] ?? "0"}
                     onChange={(e) => setSizes((p) => ({ ...p, [sz]: e.target.value }))}
                     className="mt-1 h-8 text-center"
                   />
@@ -567,3 +582,4 @@ function ProductDialog({
     </Dialog>
   );
 }
+

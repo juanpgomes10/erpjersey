@@ -926,7 +926,24 @@ export type Database = {
         | "fiado"
         | "transferencia"
         | "outro"
-      product_size: "P" | "M" | "G" | "GG" | "XGG"
+      product_size:
+        | "PP"
+        | "P"
+        | "M"
+        | "G"
+        | "GG"
+        | "XGG"
+        | "2GG"
+        | "3GG"
+        | "4GG"
+        | "14"
+        | "16"
+        | "18"
+        | "20"
+        | "22"
+        | "24"
+        | "26"
+        | "28"
       sale_source:
         | "estoque"
         | "drop"
@@ -1093,7 +1110,25 @@ export const Constants = {
         "transferencia",
         "outro",
       ],
-      product_size: ["P", "M", "G", "GG", "XGG"],
+      product_size: [
+        "PP",
+        "P",
+        "M",
+        "G",
+        "GG",
+        "XGG",
+        "2GG",
+        "3GG",
+        "4GG",
+        "14",
+        "16",
+        "18",
+        "20",
+        "22",
+        "24",
+        "26",
+        "28",
+      ],
       sale_source: [
         "estoque",
         "drop",

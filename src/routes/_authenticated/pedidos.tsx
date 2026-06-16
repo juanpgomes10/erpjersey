@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRight, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -7,7 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { detectCarrier } from "@/lib/carrier";
 import { Textarea } from "@/components/ui/textarea";
-import { modelShortLabel } from "./estoque";
+import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { buildProductLabel } from "@/lib/teams";
+import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,7 +48,7 @@ import {
 } from "@/components/ui/select";
 import { useProfile } from "@/hooks/use-profile";
 
-type SizeOpt = "P" | "M" | "G" | "GG" | "XGG";
+type SizeOpt = Database["public"]["Enums"]["product_size"];
 type OrderStatus = "pendente" | "pago" | "enviado" | "entregue" | "cancelado";
 type DisplayStatus = OrderStatus | "envio_pendente";
 
@@ -819,7 +821,7 @@ function OrderDetailDrawer({ order, onClose }: { order: OrderRow | null; onClose
 /* ---------------- New Order Wizard ---------------- */
 
 type CartItem = {
-  productId: string;
+  productId: string | null;
   productName: string;
   team: string | null;
   size: SizeOpt;
@@ -833,20 +835,8 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const { data: profile } = useProfile();
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1
-  const [productSearch, setProductSearch] = useState("");
-  const productSearchRef = useRef<HTMLInputElement>(null);
-  type ProductLite = {
-    id: string;
-    name: string;
-    team: string | null;
-    season: string | null;
-    model: string | null;
-    sale_price: number | string;
-    product_sizes?: Array<{ size: string; quantity: number }>;
-  };
-  const [selected, setSelected] = useState<ProductLite | null>(null);
-  const [cfgSize, setCfgSize] = useState<SizeOpt | null>(null);
+  // Step 1 — cascata "cria na hora"
+  const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgQty, setCfgQty] = useState(1);
   const [cfgPriceStr, setCfgPriceStr] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -870,9 +860,7 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   useEffect(() => {
     if (!open) {
       setStep(1);
-      setProductSearch("");
-      setSelected(null);
-      setCfgSize(null);
+      setCascade(emptyCascadeValue());
       setCfgQty(1);
       setCfgPriceStr("");
       setCart([]);
@@ -888,18 +876,6 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     }
   }, [open]);
 
-  const { data: products } = useQuery({
-    queryKey: ["products-search"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, model, team, season, sale_price, product_sizes(size, quantity)")
-        .limit(300);
-      return (data ?? []) as ProductLite[];
-    },
-    enabled: open,
-  });
-
   const { data: customers } = useQuery({
     queryKey: ["customers-search"],
     queryFn: async () => {
@@ -909,53 +885,46 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
     enabled: open,
   });
 
-  const filteredProducts = (products ?? []).filter((p) => {
-    if (!productSearch) return false;
-    const q = productSearch.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.team ?? "").toLowerCase().includes(q) ||
-      (p.season ?? "").toLowerCase().includes(q) ||
-      (p.model ?? "").toLowerCase().includes(q)
-    );
-  });
-
   const filteredCustomers = (customers ?? []).filter((c) => {
     if (!customerSearch) return true;
     const q = customerSearch.toLowerCase();
     return c.name.toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q);
   });
 
-  const selectProduct = (p: ProductLite) => {
-    setSelected(p);
-    setCfgSize(null);
-    setCfgQty(1);
-    setCfgPriceStr(Number(p.sale_price) > 0 ? String(p.sale_price) : "");
-  };
-
   const addToCart = () => {
-    if (!selected) return;
-    if (!cfgSize) { toast.error("Selecione o tamanho"); return; }
+    if (!cascade.team) { toast.error("Selecione o time / seleção"); return; }
+    if (!cascade.productType) { toast.error("Selecione o tipo de produto"); return; }
+    if (!cascade.model) { toast.error("Selecione o modelo"); return; }
+    if (cascade.model === "edicao_especial" && !cascade.specialEdition.trim()) {
+      toast.error("Informe qual edição especial"); return;
+    }
+    if (!cascade.size) { toast.error("Selecione o tamanho"); return; }
     if (cfgQty < 1) { toast.error("Quantidade inválida"); return; }
     const price = Number(cfgPriceStr) || 0;
     if (price <= 0) { toast.error("Informe o preço"); return; }
-    const label = `${selected.team ?? selected.name}${selected.model ? ` ${modelShortLabel(selected.model)}` : ""}${selected.season ? ` ${selected.season}` : ""}`;
+
+    const label = buildProductLabel({
+      team: cascade.team,
+      season: cascade.season,
+      productType: cascade.productType,
+      model: cascade.model,
+      specialEdition: cascade.specialEdition,
+      gender: cascade.gender,
+    });
+
     setCart((prev) => [...prev, {
-      productId: selected.id,
+      productId: null,
       productName: label,
-      team: selected.team,
-      size: cfgSize,
+      team: cascade.team,
+      size: cascade.size as SizeOpt,
       quantity: cfgQty,
       unitPrice: price,
       stock: 0,
     }]);
 
-    setSelected(null);
-    setCfgSize(null);
+    setCascade(emptyCascadeValue());
     setCfgQty(1);
     setCfgPriceStr("");
-    setProductSearch("");
-    setTimeout(() => productSearchRef.current?.focus(), 0);
   };
 
   const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
@@ -1041,82 +1010,27 @@ function NewOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
         {step === 1 && (
           <div className="space-y-4">
-            <div>
-              <Label>Buscar produto</Label>
-              <Input
-                ref={productSearchRef}
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Time, modelo ou temporada..."
-              />
-              {productSearch && !selected && (
-                <div className="mt-2 max-h-52 overflow-y-auto rounded-md border border-border">
-                  {filteredProducts.length === 0 ? (
-                    <p className="p-3 text-sm text-muted-foreground">Nenhum produto encontrado.</p>
-                  ) : (
-                    filteredProducts.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selectProduct(p)}
-                        className="flex w-full items-center justify-between gap-3 border-b border-border p-3 text-left last:border-none hover:bg-accent"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {[p.team, p.model ? modelShortLabel(p.model) : null, p.season].filter(Boolean).join(" · ") || p.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{fmtBRL(Number(p.sale_price))}</p>
-                        </div>
-                        <span className="text-xs text-muted-foreground">Selecionar →</span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-4 space-y-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Configurar produto do pedido</p>
 
-            {selected && (
-              <div className="rounded-md border border-primary/40 bg-primary/5 p-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm font-medium">
-                    {[selected.team, selected.model ? modelShortLabel(selected.model) : null, selected.season].filter(Boolean).join(" · ") || selected.name}
-                  </p>
-                  <Button variant="ghost" size="icon" onClick={() => setSelected(null)}><X className="h-4 w-4" /></Button>
+              <ProductCascade value={cascade} onChange={setCascade} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Quantidade</Label>
+                  <Input type="number" min={1} value={cfgQty} onChange={(e) => setCfgQty(Math.max(1, Number(e.target.value)))} />
                 </div>
                 <div>
-                  <Label className="mb-1.5 block">Tamanho*</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {(["P", "M", "G", "GG", "XGG"] as SizeOpt[]).map((sz) => {
-                      return (
-                        <button
-                          key={sz}
-                          type="button"
-                          onClick={() => setCfgSize(sz)}
-                          className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${cfgSize === sz ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent"}`}
-                        >
-                          {sz}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Quantidade</Label>
-                    <Input type="number" min={1} value={cfgQty} onChange={(e) => setCfgQty(Math.max(1, Number(e.target.value)))} />
-                  </div>
-                  <div>
-                    <Label>Preço unit. (R$)</Label>
-                    <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setSelected(null)}>Cancelar</Button>
-                  <Button onClick={addToCart}>Adicionar ao pedido</Button>
+                  <Label>Preço unit. (R$)*</Label>
+                  <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} />
                 </div>
               </div>
-            )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setCascade(emptyCascadeValue()); setCfgQty(1); setCfgPriceStr(""); }}>Limpar</Button>
+                <Button onClick={addToCart}>Adicionar ao pedido</Button>
+              </div>
+            </div>
+
 
             {cart.length > 0 && (
               <div className="rounded-md border border-border">
