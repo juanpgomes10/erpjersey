@@ -165,11 +165,12 @@ export const refreshTracking = createServerFn({ method: "POST" })
 
     const { data: imp, error } = await supabase
       .from("imports")
-      .select("id, store_id, tracking_code, carrier, status")
+      .select("id, store_id, tracking_code, carrier, status, linked_order_ids")
       .eq("id", data.importId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!imp?.tracking_code) throw new Error("Importação sem código de rastreamento.");
+
 
     // garante registro (idempotente)
     await callTrack17("register", [{ number: imp.tracking_code }], apiKey).catch(() => null);
