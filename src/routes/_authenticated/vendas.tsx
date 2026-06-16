@@ -301,6 +301,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   const [source, setSource] = useState<SourceKey>("estoque");
   const [supplierName, setSupplierName] = useState("");
   const [trackingCode, setTrackingCode] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | "">("");
+  const [fulfillmentStatus, setFulfillmentStatus] = useState<FulfillmentStatus | "">("");
   const [paidValueStr, setPaidValueStr] = useState("");
   const [netValueStr, setNetValueStr] = useState("");
   const [shippingCostStr, setShippingCostStr] = useState("");
