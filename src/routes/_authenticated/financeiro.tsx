@@ -432,12 +432,14 @@ function FinanceiroPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="visao">Visão geral</TabsTrigger>
-          <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
-          <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
-          <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="visao">Visão geral</TabsTrigger>
+            <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+            <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
+            <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="visao" className="space-y-4">
           <Card>
@@ -787,7 +789,7 @@ function NewTransactionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Novo lançamento</DialogTitle>
         </DialogHeader>
