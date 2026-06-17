@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
