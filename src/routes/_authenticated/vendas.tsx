@@ -213,8 +213,7 @@ function VendasPage() {
                     return (
                       <tr
                         key={s.id}
-                        onClick={() => setEditId(s.id)}
-                        className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
+                        className="group border-b border-border last:border-none hover:bg-accent/40"
                       >
                         <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
                         <td className="px-3 py-3 font-medium">{customer}</td>
