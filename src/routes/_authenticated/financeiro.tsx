@@ -223,6 +223,40 @@ function FinanceiroPage() {
 
   const freteCost = lucroPedidos.frete;
 
+  // Custos futuros: pedidos ainda pendentes no período (custo dos itens + frete) +
+  // despesas não pagas com vencimento no período + despesas fixas mensais.
+  const custosFuturos = useMemo(() => {
+    let pedidosPendentes = 0;
+    (orders ?? []).forEach((o: any) => {
+      if (o.status !== "pendente") return;
+      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+      let custoItens = 0;
+      const saleItems: any[] | undefined = sale?.sale_items;
+      if (saleItems && saleItems.length > 0) {
+        saleItems.forEach((it) => {
+          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+        });
+      } else {
+        (o.order_items ?? []).forEach((it: any) => {
+          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
+        });
+      }
+      pedidosPendentes += custoItens + Number(o.shipping_cost ?? 0);
+    });
+    const despesasAPagar = (txs ?? [])
+      .filter((t) => t.type === "saida" && !t.paid)
+      .reduce((s, t) => s + Number(t.value), 0);
+    return {
+      pedidosPendentes,
+      despesasAPagar,
+      fixas: recurringMonthly,
+      total: pedidosPendentes + despesasAPagar + recurringMonthly,
+    };
+  }, [orders, txs, recurringMonthly]);
+
+  const saldoProjetado = saldo - custosFuturos.total;
+
+
   // Série temporal: entradas vs saídas por dia
   const seriesDaily = useMemo(() => {
     const map = new Map<string, { date: string; entradas: number; saidas: number }>();
