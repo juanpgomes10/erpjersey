@@ -77,15 +77,25 @@ async function callTrack17(endpoint: string, body: unknown, apiKey: string) {
   return res.json();
 }
 
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 function isAuthorized(request: Request): boolean {
-  const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+  // Server-only secret; never exposed to the browser. Configure pg_cron to
+  // send it as `x-cron-secret`.
+  const expected = process.env.CRON_SECRET;
   if (!expected) return false;
-  const apikey = request.headers.get("apikey");
-  const auth = request.headers.get("authorization");
-  const bearer = auth?.toLowerCase().startsWith("bearer ")
-    ? auth.slice(7).trim()
-    : null;
-  return apikey === expected || bearer === expected;
+  const provided =
+    request.headers.get("x-cron-secret") ??
+    (request.headers.get("authorization")?.toLowerCase().startsWith("bearer ")
+      ? request.headers.get("authorization")!.slice(7).trim()
+      : null);
+  if (!provided) return false;
+  return timingSafeEqualStr(provided, expected);
 }
 
 export const Route = createFileRoute("/api/public/hooks/refresh-trackings")({
