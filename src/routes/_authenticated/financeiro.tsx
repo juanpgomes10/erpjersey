@@ -432,12 +432,14 @@ function FinanceiroPage() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="visao">Visão geral</TabsTrigger>
-          <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
-          <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
-          <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="visao">Visão geral</TabsTrigger>
+            <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+            <TabsTrigger value="despesas">Despesas e custos</TabsTrigger>
+            <TabsTrigger value="fixas">Despesas fixas</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="visao" className="space-y-4">
           <Card>
