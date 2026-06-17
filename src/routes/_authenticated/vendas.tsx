@@ -201,6 +201,7 @@ function VendasPage() {
                     <th className="px-3 py-2 text-right font-medium">Líquido</th>
                     <th className="px-3 py-2 text-right font-medium">Lucro</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
