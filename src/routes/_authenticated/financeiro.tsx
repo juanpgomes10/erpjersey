@@ -629,49 +629,113 @@ function TxTable({
   );
 }
 
+type Kind = "despesa" | "receita" | "saque";
+
+const EXPENSE_CATEGORIES = [
+  { v: "marketing", l: "Marketing", db: "marketing" as TxCategory },
+  { v: "logistica", l: "Logística", db: "frete" as TxCategory },
+  { v: "impostos", l: "Impostos", db: "outros" as TxCategory },
+  { v: "embalagens", l: "Embalagens", db: "outros" as TxCategory },
+  { v: "plataformas", l: "Plataformas e sistemas", db: "outros" as TxCategory },
+  { v: "operacional", l: "Custos operacionais", db: "outros" as TxCategory },
+  { v: "salario", l: "Salário de colaboradores", db: "outros" as TxCategory },
+  { v: "outra", l: "Outra (personalizada)", db: "outros" as TxCategory },
+];
+
+const INCOME_CATEGORIES = [
+  { v: "venda", l: "Venda", db: "venda" as TxCategory },
+  { v: "outra", l: "Outra (personalizada)", db: "outros" as TxCategory },
+];
+
 function NewTransactionDialog({
   open, onOpenChange, storeId, onCreated,
 }: { open: boolean; onOpenChange: (o: boolean) => void; storeId: string | undefined; onCreated: () => void }) {
-  const [type, setType] = useState<TxType>("saida");
+  const [kind, setKind] = useState<Kind>("despesa");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<TxCategory>("outros");
   const [value, setValue] = useState("");
   const [payment, setPayment] = useState<PayMethod>("pix");
-  const [recurring, setRecurring] = useState(false);
+  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [categoryKey, setCategoryKey] = useState<string>("marketing");
+  const [categoryCustom, setCategoryCustom] = useState("");
+  const [frequency, setFrequency] = useState<"fixa" | "variavel">("variavel");
+  const [freqDetails, setFreqDetails] = useState("");
+  const [saqueMotivo, setSaqueMotivo] = useState("");
   const [saving, setSaving] = useState(false);
 
   function reset() {
-    setType("saida"); setDescription(""); setCategory("outros");
-    setValue(""); setPayment("pix"); setRecurring(false); setNotes("");
+    setKind("despesa");
+    setDescription(""); setValue(""); setPayment("pix");
+    setDate(new Date().toISOString().slice(0, 10));
+    setNotes("");
+    setCategoryKey("marketing"); setCategoryCustom("");
+    setFrequency("variavel"); setFreqDetails("");
+    setSaqueMotivo("");
+  }
+
+  function changeKind(k: Kind) {
+    setKind(k);
+    if (k === "receita") setCategoryKey("venda");
+    if (k === "despesa") setCategoryKey("marketing");
   }
 
   async function submit() {
     if (!storeId) return;
     const val = Number(value.replace(",", "."));
-    if (!description.trim() || !val || val <= 0) {
-      toast.error("Preencha descrição e valor");
-      return;
+    if (!val || val <= 0) { toast.error("Informe um valor válido"); return; }
+
+    let txType: TxType;
+    let dbCategory: TxCategory;
+    let finalDescription = "";
+    let finalNotes = notes.trim();
+    let recurring = false;
+
+    if (kind === "saque") {
+      if (!saqueMotivo.trim()) { toast.error("Informe o motivo do saque"); return; }
+      txType = "saida";
+      dbCategory = "outros";
+      finalDescription = `Saque do proprietário — ${saqueMotivo.trim()}`;
+    } else {
+      if (!description.trim()) { toast.error("Informe a descrição"); return; }
+      const list = kind === "despesa" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+      const cat = list.find((c) => c.v === categoryKey) ?? list[0];
+      const label = categoryKey === "outra" ? (categoryCustom.trim() || "Outra") : cat.l;
+      txType = kind === "despesa" ? "saida" : "entrada";
+      dbCategory = cat.db;
+      finalDescription = `[${label}] ${description.trim()}`;
+      recurring = frequency === "fixa";
+      if (freqDetails.trim()) {
+        const tag = frequency === "fixa" ? "Fixa" : "Variável";
+        finalNotes = `${tag}: ${freqDetails.trim()}${finalNotes ? `\n${finalNotes}` : ""}`;
+      }
     }
+
+    const createdAt = new Date(`${date}T12:00:00`).toISOString();
+
     setSaving(true);
     const { error } = await supabase.from("transactions").insert({
       store_id: storeId,
-      type,
-      description: description.trim(),
-      category,
+      type: txType,
+      description: finalDescription,
+      category: dbCategory,
       value: val,
       payment_method: payment,
       paid: true,
       recurring,
-      notes: notes.trim() || null,
+      notes: finalNotes || null,
+      created_at: createdAt,
     } as never);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Lançamento registrado");
+    toast.success(
+      kind === "saque" ? "Saque registrado" : kind === "receita" ? "Receita registrada" : "Despesa registrada",
+    );
     onCreated();
     reset();
     onOpenChange(false);
   }
+
+  const activeCategories = kind === "receita" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
@@ -679,72 +743,178 @@ function NewTransactionDialog({
         <DialogHeader>
           <DialogTitle>Novo lançamento</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              variant={type === "entrada" ? "default" : "outline"}
-              onClick={() => setType("entrada")}
-              className={type === "entrada" ? "bg-[color:#16A34A] hover:bg-[color:#15803D]" : ""}
-            >
-              <TrendingUp className="mr-2 h-4 w-4" /> Receita
-            </Button>
-            <Button
-              type="button"
-              variant={type === "saida" ? "default" : "outline"}
-              onClick={() => setType("saida")}
-              className={type === "saida" ? "bg-[color:#DC2626] hover:bg-[color:#B91C1C]" : ""}
-            >
-              <TrendingDown className="mr-2 h-4 w-4" /> Despesa
-            </Button>
-          </div>
+
+        <div className="space-y-4">
           <div>
-            <Label className="text-xs">Descrição</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Aluguel, Frete DHL..." />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Valor (R$)</Label>
-              <Input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" placeholder="0,00" />
-            </div>
-            <div>
-              <Label className="text-xs">Categoria</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as TxCategory)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CATEGORY_LABEL) as TxCategory[]).map((c) => (
-                    <SelectItem key={c} value={c}>{CATEGORY_LABEL[c]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Label className="mb-2 block text-xs">Tipo de lançamento</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                variant={kind === "despesa" ? "default" : "outline"}
+                onClick={() => changeKind("despesa")}
+                className={kind === "despesa" ? "bg-[color:#DC2626] hover:bg-[color:#B91C1C]" : ""}
+              >
+                <TrendingDown className="mr-1 h-4 w-4" /> Despesa
+              </Button>
+              <Button
+                type="button"
+                variant={kind === "receita" ? "default" : "outline"}
+                onClick={() => changeKind("receita")}
+                className={kind === "receita" ? "bg-[color:#16A34A] hover:bg-[color:#15803D]" : ""}
+              >
+                <TrendingUp className="mr-1 h-4 w-4" /> Receita
+              </Button>
+              <Button
+                type="button"
+                variant={kind === "saque" ? "default" : "outline"}
+                onClick={() => changeKind("saque")}
+                className={kind === "saque" ? "bg-[color:#D97706] hover:bg-[color:#B45309]" : ""}
+              >
+                <Wallet className="mr-1 h-4 w-4" /> Saque
+              </Button>
             </div>
           </div>
-          <div>
-            <Label className="text-xs">Forma de pagamento</Label>
-            <Select value={payment} onValueChange={(v) => setPayment(v as PayMethod)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.keys(paymentMethodLabel) as PayMethod[]).map((p) => (
-                  <SelectItem key={p} value={p}>{paymentMethodLabel[p]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-border p-3">
-            <div>
-              <div className="text-sm font-medium">Despesa/Receita fixa mensal</div>
-              <div className="text-xs text-muted-foreground">Marcar como recorrente</div>
-            </div>
-            <Switch checked={recurring} onCheckedChange={setRecurring} />
-          </div>
-          <div>
-            <Label className="text-xs">Observações</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
-          </div>
+
+          {kind === "saque" ? (
+            <>
+              <div>
+                <Label className="text-xs">Valor total do saque (R$)</Label>
+                <Input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" placeholder="0,00" />
+              </div>
+              <div>
+                <Label className="text-xs">Data</Label>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Motivo do saque</Label>
+                <Textarea
+                  value={saqueMotivo}
+                  onChange={(e) => setSaqueMotivo(e.target.value)}
+                  rows={3}
+                  placeholder="Ex: Pró-labore, retirada para uso pessoal..."
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Forma</Label>
+                <Select value={payment} onValueChange={(v) => setPayment(v as PayMethod)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(paymentMethodLabel) as PayMethod[]).map((p) => (
+                      <SelectItem key={p} value={p}>{paymentMethodLabel[p]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">Descrição</Label>
+                <Input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={kind === "despesa" ? "Ex: Anúncio Instagram, conta de luz..." : "Ex: Venda avulsa, reembolso..."}
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs">Categoria</Label>
+                <Select value={categoryKey} onValueChange={setCategoryKey}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {activeCategories.map((c) => (
+                      <SelectItem key={c.v} value={c.v}>{c.l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {categoryKey === "outra" && (
+                  <Input
+                    className="mt-2"
+                    value={categoryCustom}
+                    onChange={(e) => setCategoryCustom(e.target.value)}
+                    placeholder="Escreva o nome da categoria"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">Valor (R$)</Label>
+                  <Input value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" placeholder="0,00" />
+                </div>
+                <div>
+                  <Label className="text-xs">Data</Label>
+                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Forma de pagamento</Label>
+                <Select value={payment} onValueChange={(v) => setPayment(v as PayMethod)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(paymentMethodLabel) as PayMethod[]).map((p) => (
+                      <SelectItem key={p} value={p}>{paymentMethodLabel[p]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="mb-2 block text-xs">
+                  Essa {kind === "despesa" ? "despesa" : "receita"} é fixa ou variável?
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={frequency === "fixa" ? "default" : "outline"}
+                    onClick={() => setFrequency("fixa")}
+                    className={frequency === "fixa" ? "bg-[color:#7C3AED] hover:bg-[color:#6D28D9]" : ""}
+                  >
+                    <Repeat className="mr-1 h-4 w-4" /> Fixa
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={frequency === "variavel" ? "default" : "outline"}
+                    onClick={() => setFrequency("variavel")}
+                  >
+                    Variável
+                  </Button>
+                </div>
+                <Textarea
+                  className="mt-2"
+                  value={freqDetails}
+                  onChange={(e) => setFreqDetails(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    frequency === "fixa"
+                      ? "Ex: Cobrada todo dia 5, contrato 12 meses..."
+                      : "Ex: Detalhes adicionais sobre esse lançamento"
+                  }
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs">Observações (opcional)</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+              </div>
+            </>
+          )}
         </div>
+
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancelar</Button>
-          <Button onClick={submit} disabled={saving} className="w-full sm:w-auto bg-[color:#2563EB] hover:bg-[color:#1D4ED8]">
+          <Button
+            onClick={submit}
+            disabled={saving}
+            className={`w-full sm:w-auto ${
+              kind === "despesa"
+                ? "bg-[color:#DC2626] hover:bg-[color:#B91C1C]"
+                : kind === "receita"
+                ? "bg-[color:#16A34A] hover:bg-[color:#15803D]"
+                : "bg-[color:#D97706] hover:bg-[color:#B45309]"
+            }`}
+          >
             {saving ? "Salvando..." : "Salvar"}
           </Button>
         </DialogFooter>
