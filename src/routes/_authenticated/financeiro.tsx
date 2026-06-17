@@ -341,13 +341,6 @@ function FinanceiroPage() {
           loading={loadingTx}
         />
         <KpiCard
-          icon={<TrendingDown className="h-4 w-4" />}
-          label="Despesas"
-          value={fmtBRL(saidas)}
-          color="#DC2626"
-          loading={loadingTx}
-        />
-        <KpiCard
           icon={<Wallet className="h-4 w-4" />}
           label="Saldo do período"
           value={fmtBRL(saldo)}
@@ -362,7 +355,6 @@ function FinanceiroPage() {
           color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
           loading={loadingTx || !orders || !recurring}
         />
-
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Lucro dos pedidos"
@@ -371,6 +363,7 @@ function FinanceiroPage() {
           color="#16A34A"
           loading={!orders}
         />
+
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Custo dos pedidos"
@@ -396,6 +389,21 @@ function FinanceiroPage() {
           loading={!stockValue}
         />
         <KpiCard
+          icon={<Wallet className="h-4 w-4" />}
+          label="Patrimônio (saldo + estoque)"
+          value={fmtBRL(saldo + (stockValue?.cost ?? 0))}
+          color="#2563EB"
+          loading={loadingTx || !stockValue}
+        />
+
+        <KpiCard
+          icon={<TrendingDown className="h-4 w-4" />}
+          label="Despesas variáveis"
+          value={fmtBRL(despesasVariaveis)}
+          color="#DC2626"
+          loading={loadingTx}
+        />
+        <KpiCard
           icon={<Repeat className="h-4 w-4" />}
           label="Despesas fixas / mês"
           value={fmtBRL(recurringMonthly)}
@@ -410,13 +418,6 @@ function FinanceiroPage() {
           sub="Pedidos − fixas mensais"
           color={lucroPedidos.lucro - recurringMonthly >= 0 ? "#16A34A" : "#DC2626"}
           loading={!orders || !recurring}
-        />
-        <KpiCard
-          icon={<Wallet className="h-4 w-4" />}
-          label="Patrimônio (saldo + estoque)"
-          value={fmtBRL(saldo + (stockValue?.cost ?? 0))}
-          color="#2563EB"
-          loading={loadingTx || !stockValue}
         />
       </div>
 
