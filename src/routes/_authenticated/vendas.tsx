@@ -215,20 +215,30 @@ function VendasPage() {
                         key={s.id}
                         className="group border-b border-border last:border-none hover:bg-accent/40"
                       >
-                        <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
-                        <td className="px-3 py-3 font-medium">{customer}</td>
-                        <td className="px-3 py-3 text-muted-foreground">
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>{fmtDateTime(s.created_at)}</td>
+                        <td className="px-3 py-3 font-medium cursor-pointer" onClick={() => setEditId(s.id)}>{customer}</td>
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>
                           {items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0} item(ns)
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground">{sourceLabel(sourceVal)}</td>
-                        <td className="px-3 py-3">{paymentMethodLabel[s.payment_method] ?? s.payment_method}</td>
-                        <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(Number(s.total_value))}</td>
-                        <td className="px-3 py-3 text-right tabular">{fmtBRL(netValue)}</td>
-                        <td className="px-3 py-3 text-right tabular text-[color:#16A34A]">{fmtBRL(Number(s.profit))}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>{sourceLabel(sourceVal)}</td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setEditId(s.id)}>{paymentMethodLabel[s.payment_method] ?? s.payment_method}</td>
+                        <td className="px-3 py-3 text-right tabular font-medium cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(Number(s.total_value))}</td>
+                        <td className="px-3 py-3 text-right tabular cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(netValue)}</td>
+                        <td className="px-3 py-3 text-right tabular text-[color:#16A34A] cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(Number(s.profit))}</td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setEditId(s.id)}>
                           <Badge variant={s.status === "concluida" ? "default" : "secondary"}>
                             {s.status === "concluida" ? "Concluída" : "Cancelada"}
                           </Badge>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => setEditId(s.id)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
                         </td>
                       </tr>
                     );
