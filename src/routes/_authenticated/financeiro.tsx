@@ -701,8 +701,6 @@ function NewTransactionDialog({
   const [notes, setNotes] = useState("");
   const [categoryKey, setCategoryKey] = useState<string>("marketing");
   const [categoryCustom, setCategoryCustom] = useState("");
-  const [frequency, setFrequency] = useState<"fixa" | "variavel">("variavel");
-  const [freqDetails, setFreqDetails] = useState("");
   const [saqueMotivo, setSaqueMotivo] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -712,7 +710,6 @@ function NewTransactionDialog({
     setDate(new Date().toISOString().slice(0, 10));
     setNotes("");
     setCategoryKey("marketing"); setCategoryCustom("");
-    setFrequency("variavel"); setFreqDetails("");
     setSaqueMotivo("");
   }
 
