@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Receipt, X, UserPlus, UserCheck } from "lucide-react";
+import { Plus, Search, Receipt, X, UserPlus, UserCheck, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { detectCarrier } from "@/lib/carrier";
@@ -201,6 +201,7 @@ function VendasPage() {
                     <th className="px-3 py-2 text-right font-medium">Líquido</th>
                     <th className="px-3 py-2 text-right font-medium">Lucro</th>
                     <th className="px-3 py-2 text-left font-medium">Status</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -212,23 +213,32 @@ function VendasPage() {
                     return (
                       <tr
                         key={s.id}
-                        onClick={() => setEditId(s.id)}
-                        className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
+                        className="group border-b border-border last:border-none hover:bg-accent/40"
                       >
-                        <td className="px-3 py-3 text-muted-foreground">{fmtDateTime(s.created_at)}</td>
-                        <td className="px-3 py-3 font-medium">{customer}</td>
-                        <td className="px-3 py-3 text-muted-foreground">
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>{fmtDateTime(s.created_at)}</td>
+                        <td className="px-3 py-3 font-medium cursor-pointer" onClick={() => setEditId(s.id)}>{customer}</td>
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>
                           {items?.reduce((sum, i) => sum + i.quantity, 0) ?? 0} item(ns)
                         </td>
-                        <td className="px-3 py-3 text-muted-foreground">{sourceLabel(sourceVal)}</td>
-                        <td className="px-3 py-3">{paymentMethodLabel[s.payment_method] ?? s.payment_method}</td>
-                        <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(Number(s.total_value))}</td>
-                        <td className="px-3 py-3 text-right tabular">{fmtBRL(netValue)}</td>
-                        <td className="px-3 py-3 text-right tabular text-[color:#16A34A]">{fmtBRL(Number(s.profit))}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setEditId(s.id)}>{sourceLabel(sourceVal)}</td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setEditId(s.id)}>{paymentMethodLabel[s.payment_method] ?? s.payment_method}</td>
+                        <td className="px-3 py-3 text-right tabular font-medium cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(Number(s.total_value))}</td>
+                        <td className="px-3 py-3 text-right tabular cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(netValue)}</td>
+                        <td className="px-3 py-3 text-right tabular text-[color:#16A34A] cursor-pointer" onClick={() => setEditId(s.id)}>{fmtBRL(Number(s.profit))}</td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setEditId(s.id)}>
                           <Badge variant={s.status === "concluida" ? "default" : "secondary"}>
                             {s.status === "concluida" ? "Concluída" : "Cancelada"}
                           </Badge>
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => setEditId(s.id)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
                         </td>
                       </tr>
                     );
