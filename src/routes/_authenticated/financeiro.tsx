@@ -897,40 +897,6 @@ function NewTransactionDialog({
               </div>
 
               <div>
-                <Label className="mb-2 block text-xs">
-                  Essa {kind === "despesa" ? "despesa" : "receita"} é fixa ou variável?
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={frequency === "fixa" ? "default" : "outline"}
-                    onClick={() => setFrequency("fixa")}
-                    className={frequency === "fixa" ? "bg-[color:#7C3AED] hover:bg-[color:#6D28D9]" : ""}
-                  >
-                    <Repeat className="mr-1 h-4 w-4" /> Fixa
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={frequency === "variavel" ? "default" : "outline"}
-                    onClick={() => setFrequency("variavel")}
-                  >
-                    Variável
-                  </Button>
-                </div>
-                <Textarea
-                  className="mt-2"
-                  value={freqDetails}
-                  onChange={(e) => setFreqDetails(e.target.value)}
-                  rows={2}
-                  placeholder={
-                    frequency === "fixa"
-                      ? "Ex: Cobrada todo dia 5, contrato 12 meses..."
-                      : "Ex: Detalhes adicionais sobre esse lançamento"
-                  }
-                />
-              </div>
-
-              <div>
                 <Label className="text-xs">Observações (opcional)</Label>
                 <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
               </div>
