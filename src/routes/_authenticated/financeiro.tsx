@@ -415,6 +415,13 @@ function FinanceiroPage() {
           loading={!recurring}
         />
         <KpiCard
+          icon={<Banknote className="h-4 w-4" />}
+          label="Saques/Retiradas"
+          value={fmtBRL(saquesTotal)}
+          color="#D97706"
+          loading={loadingTx}
+        />
+        <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Lucro líquido projetado"
           value={fmtBRL(lucroPedidos.lucro - recurringMonthly)}
