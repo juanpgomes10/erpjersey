@@ -701,8 +701,6 @@ function NewTransactionDialog({
   const [notes, setNotes] = useState("");
   const [categoryKey, setCategoryKey] = useState<string>("marketing");
   const [categoryCustom, setCategoryCustom] = useState("");
-  const [frequency, setFrequency] = useState<"fixa" | "variavel">("variavel");
-  const [freqDetails, setFreqDetails] = useState("");
   const [saqueMotivo, setSaqueMotivo] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -712,7 +710,6 @@ function NewTransactionDialog({
     setDate(new Date().toISOString().slice(0, 10));
     setNotes("");
     setCategoryKey("marketing"); setCategoryCustom("");
-    setFrequency("variavel"); setFreqDetails("");
     setSaqueMotivo("");
   }
 
@@ -746,11 +743,7 @@ function NewTransactionDialog({
       txType = kind === "despesa" ? "saida" : "entrada";
       dbCategory = cat.db;
       finalDescription = `[${label}] ${description.trim()}`;
-      recurring = frequency === "fixa";
-      if (freqDetails.trim()) {
-        const tag = frequency === "fixa" ? "Fixa" : "Variável";
-        finalNotes = `${tag}: ${freqDetails.trim()}${finalNotes ? `\n${finalNotes}` : ""}`;
-      }
+      recurring = false;
     }
 
     const createdAt = new Date(`${date}T12:00:00`).toISOString();
@@ -901,40 +894,6 @@ function NewTransactionDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div>
-                <Label className="mb-2 block text-xs">
-                  Essa {kind === "despesa" ? "despesa" : "receita"} é fixa ou variável?
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={frequency === "fixa" ? "default" : "outline"}
-                    onClick={() => setFrequency("fixa")}
-                    className={frequency === "fixa" ? "bg-[color:#7C3AED] hover:bg-[color:#6D28D9]" : ""}
-                  >
-                    <Repeat className="mr-1 h-4 w-4" /> Fixa
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={frequency === "variavel" ? "default" : "outline"}
-                    onClick={() => setFrequency("variavel")}
-                  >
-                    Variável
-                  </Button>
-                </div>
-                <Textarea
-                  className="mt-2"
-                  value={freqDetails}
-                  onChange={(e) => setFreqDetails(e.target.value)}
-                  rows={2}
-                  placeholder={
-                    frequency === "fixa"
-                      ? "Ex: Cobrada todo dia 5, contrato 12 meses..."
-                      : "Ex: Detalhes adicionais sobre esse lançamento"
-                  }
-                />
               </div>
 
               <div>
