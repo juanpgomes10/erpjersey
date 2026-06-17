@@ -354,6 +354,15 @@ function FinanceiroPage() {
           loading={loadingTx}
         />
         <KpiCard
+          icon={<Wallet className="h-4 w-4" />}
+          label="Saldo projetado"
+          value={fmtBRL(saldoProjetado)}
+          sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • Pendentes ${fmtBRL(custosFuturos.pedidosPendentes)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
+          color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
+          loading={loadingTx || !orders || !recurring}
+        />
+
+        <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Lucro dos pedidos"
           value={fmtBRL(lucroPedidos.lucro)}
