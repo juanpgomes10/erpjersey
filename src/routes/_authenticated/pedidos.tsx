@@ -414,24 +414,32 @@ function PedidosPage() {
                         ? `${firstItem.product?.team ?? firstItem.product?.name ?? firstItem.product_name ?? "Produto"}${o.items.length > 1 ? ` + ${o.items.length - 1} ${o.items.length - 1 === 1 ? "item" : "itens"}` : ""}`
                         : "—";
                       return (
-                        <tr
-                          key={o.id}
-                          onClick={() => setDetailId(o.id)}
-                          className="cursor-pointer border-b border-border last:border-none hover:bg-accent/40"
-                        >
-                          <td className="px-3 py-3 font-medium tabular">
-                            <div className="flex items-center gap-2">
-                              <span>{orderNum(o.order_number)}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-3">{o.customer?.name ?? "—"}</td>
-                          <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px]">{productSummary}</td>
-                          <td className="px-3 py-3 text-right tabular font-medium">{fmtBRL(total)}</td>
-                          <td className="px-3 py-3 text-muted-foreground">{paymentMethodLabel[o.payment_method] ?? o.payment_method}</td>
-                          <td className="px-3 py-3"><OrderStatusBadges o={o} /></td>
-                          <td className="px-3 py-3 text-muted-foreground">{fmtDate(o.created_at)}</td>
-                          <td className="px-3 py-3 text-right text-muted-foreground"><ChevronRight className="ml-auto h-4 w-4" /></td>
-                        </tr>
+                      <tr
+                        key={o.id}
+                        className="group border-b border-border last:border-none hover:bg-accent/40"
+                      >
+                        <td className="px-3 py-3 font-medium tabular" onClick={() => setDetailId(o.id)}>
+                          <div className="flex items-center gap-2 cursor-pointer">
+                            <span>{orderNum(o.order_number)}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setDetailId(o.id)}>{o.customer?.name ?? "—"}</td>
+                        <td className="px-3 py-3 text-muted-foreground truncate max-w-[220px] cursor-pointer" onClick={() => setDetailId(o.id)}>{productSummary}</td>
+                        <td className="px-3 py-3 text-right tabular font-medium cursor-pointer" onClick={() => setDetailId(o.id)}>{fmtBRL(total)}</td>
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setDetailId(o.id)}>{paymentMethodLabel[o.payment_method] ?? o.payment_method}</td>
+                        <td className="px-3 py-3 cursor-pointer" onClick={() => setDetailId(o.id)}><OrderStatusBadges o={o} /></td>
+                        <td className="px-3 py-3 text-muted-foreground cursor-pointer" onClick={() => setDetailId(o.id)}>{fmtDate(o.created_at)}</td>
+                        <td className="px-3 py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => setDetailId(o.id)}
+                          >
+                            <Pencil className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </td>
+                      </tr>
                       );
                     })}
                   </tbody>
