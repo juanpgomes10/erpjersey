@@ -188,6 +188,9 @@ function FinanceiroPage() {
   const entradas = (txs ?? []).filter((t) => t.type === "entrada").reduce((s, t) => s + Number(t.value), 0);
   const saidas = (txs ?? []).filter((t) => t.type === "saida").reduce((s, t) => s + Number(t.value), 0);
   const despesasVariaveis = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring).reduce((s, t) => s + Number(t.value), 0);
+  const saquesTotal = (txs ?? [])
+    .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
+    .reduce((s, t) => s + Number(t.value), 0);
   const saldo = entradas - saidas;
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
