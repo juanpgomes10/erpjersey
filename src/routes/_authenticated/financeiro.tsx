@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, TrendingUp, TrendingDown, Wallet, Package, DollarSign, Repeat } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, Wallet, Package, DollarSign, Repeat, Banknote } from "lucide-react";
 import { toast } from "sonner";
 import {
   ResponsiveContainer,
@@ -188,6 +188,9 @@ function FinanceiroPage() {
   const entradas = (txs ?? []).filter((t) => t.type === "entrada").reduce((s, t) => s + Number(t.value), 0);
   const saidas = (txs ?? []).filter((t) => t.type === "saida").reduce((s, t) => s + Number(t.value), 0);
   const despesasVariaveis = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring).reduce((s, t) => s + Number(t.value), 0);
+  const saquesTotal = (txs ?? [])
+    .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
+    .reduce((s, t) => s + Number(t.value), 0);
   const saldo = entradas - saidas;
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
@@ -410,6 +413,13 @@ function FinanceiroPage() {
           sub={`${(recurring ?? []).filter((t) => t.type === "saida").length} lançamentos`}
           color="#7C3AED"
           loading={!recurring}
+        />
+        <KpiCard
+          icon={<Banknote className="h-4 w-4" />}
+          label="Saques/Retiradas"
+          value={fmtBRL(saquesTotal)}
+          color="#D97706"
+          loading={loadingTx}
         />
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
