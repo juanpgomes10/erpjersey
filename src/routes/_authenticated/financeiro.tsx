@@ -191,7 +191,7 @@ function FinanceiroPage() {
   const saquesTotal = (txs ?? [])
     .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
     .reduce((s, t) => s + Number(t.value), 0);
-  const saldo = entradas - saidas;
+  
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
@@ -227,41 +227,33 @@ function FinanceiroPage() {
 
   const freteCost = lucroPedidos.frete;
 
-  // Custos futuros: pedidos ainda pendentes no período (custo dos itens + frete) +
-  // despesas não pagas com vencimento no período + despesas fixas mensais.
+  // ====== Totais consolidados (alinhados ao Dashboard) ======
+  // Receita do período = faturamento dos pedidos (igual ao Dashboard) + entradas manuais
+  // Despesas do período = custo dos pedidos + frete dos pedidos + saídas manuais
+  const totalReceitas = lucroPedidos.receita + entradas;
+  const totalDespesas = lucroPedidos.custo + lucroPedidos.frete + saidas;
+  const saldoConsolidado = totalReceitas - totalDespesas;
+
+  // Custos futuros: despesas não pagas no período + despesas fixas mensais.
+  // (custo de pedidos pendentes já está contabilizado em totalDespesas, então
+  // NÃO entra aqui para evitar duplicidade.)
   const custosFuturos = useMemo(() => {
-    let pedidosPendentes = 0;
-    (orders ?? []).forEach((o: any) => {
-      if (o.status !== "pendente") return;
-      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
-      let custoItens = 0;
-      const saleItems: any[] | undefined = sale?.sale_items;
-      if (saleItems && saleItems.length > 0) {
-        saleItems.forEach((it) => {
-          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
-        });
-      } else {
-        (o.order_items ?? []).forEach((it: any) => {
-          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
-        });
-      }
-      pedidosPendentes += custoItens + Number(o.shipping_cost ?? 0);
-    });
     const despesasAPagar = (txs ?? [])
       .filter((t) => t.type === "saida" && !t.paid)
       .reduce((s, t) => s + Number(t.value), 0);
     return {
-      pedidosPendentes,
       despesasAPagar,
       fixas: recurringMonthly,
-      total: pedidosPendentes + despesasAPagar + recurringMonthly,
+      total: despesasAPagar + recurringMonthly,
     };
-  }, [orders, txs, recurringMonthly]);
+  }, [txs, recurringMonthly]);
 
-  const saldoProjetado = saldo - custosFuturos.total;
+  const saldoProjetado = saldoConsolidado - custosFuturos.total;
+  const lucroLiquido = saldoConsolidado - recurringMonthly;
 
 
-  // Série temporal: entradas vs saídas por dia
+
+  // Série temporal: receitas (pedidos + entradas manuais) vs despesas (custo pedidos + frete + saídas manuais)
   const seriesDaily = useMemo(() => {
     const map = new Map<string, { date: string; entradas: number; saidas: number }>();
     const days = Number(period);
@@ -279,12 +271,36 @@ function FinanceiroPage() {
         else row.saidas += Number(t.value);
       }
     });
+    (orders ?? []).forEach((o: any) => {
+      if (o.status === "cancelado") return;
+      const key = (o.created_at as string).slice(0, 10);
+      const row = map.get(key);
+      if (!row) return;
+      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+      const receita = sale && sale.net_value != null
+        ? Number(sale.net_value)
+        : Number(o.total_value ?? 0) - Number(o.discount ?? 0);
+      let custoItens = 0;
+      const saleItems: any[] | undefined = sale?.sale_items;
+      if (saleItems && saleItems.length > 0) {
+        saleItems.forEach((it) => {
+          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+        });
+      } else {
+        (o.order_items ?? []).forEach((it: any) => {
+          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
+        });
+      }
+      row.entradas += receita;
+      row.saidas += custoItens + Number(o.shipping_cost ?? 0);
+    });
+
     return Array.from(map.values()).map((r) => ({
       ...r,
       label: new Date(r.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
       lucro: r.entradas - r.saidas,
     }));
-  }, [txs, period]);
+  }, [txs, orders, period]);
 
   // Despesas por categoria
   const byCategory = useMemo(() => {
@@ -339,25 +355,36 @@ function FinanceiroPage() {
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Receitas"
-          value={fmtBRL(entradas)}
+          value={fmtBRL(totalReceitas)}
+          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
           color="#16A34A"
-          loading={loadingTx}
+          loading={loadingTx || !orders}
+        />
+        <KpiCard
+          icon={<TrendingDown className="h-4 w-4" />}
+          label="Despesas"
+          value={fmtBRL(totalDespesas)}
+          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
+          color="#DC2626"
+          loading={loadingTx || !orders}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
           label="Saldo do período"
-          value={fmtBRL(saldo)}
-          color={saldo >= 0 ? "#2563EB" : "#DC2626"}
-          loading={loadingTx}
+          value={fmtBRL(saldoConsolidado)}
+          sub="Receitas − Despesas"
+          color={saldoConsolidado >= 0 ? "#2563EB" : "#DC2626"}
+          loading={loadingTx || !orders}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
           label="Saldo projetado"
           value={fmtBRL(saldoProjetado)}
-          sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • Pendentes ${fmtBRL(custosFuturos.pedidosPendentes)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
+          sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
           color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
           loading={loadingTx || !orders || !recurring}
         />
+
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Lucro dos pedidos"
@@ -366,7 +393,6 @@ function FinanceiroPage() {
           color="#16A34A"
           loading={!orders}
         />
-
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Custo dos pedidos"
@@ -384,28 +410,14 @@ function FinanceiroPage() {
           loading={!orders}
         />
         <KpiCard
-          icon={<Package className="h-4 w-4" />}
-          label="Capital em estoque"
-          value={fmtBRL(stockValue?.cost ?? 0)}
-          sub={`${stockValue?.units ?? 0} unid. • potencial ${fmtBRL(stockValue?.potentialRevenue ?? 0)}`}
-          color="#D97706"
-          loading={!stockValue}
-        />
-        <KpiCard
-          icon={<Wallet className="h-4 w-4" />}
-          label="Patrimônio (saldo + estoque)"
-          value={fmtBRL(saldo + (stockValue?.cost ?? 0))}
-          color="#2563EB"
-          loading={loadingTx || !stockValue}
-        />
-
-        <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
-          label="Despesas variáveis"
+          label="Despesas variáveis (manuais)"
           value={fmtBRL(despesasVariaveis)}
+          sub="Lançamentos manuais (marketing, fornecedor, etc.)"
           color="#DC2626"
           loading={loadingTx}
         />
+
         <KpiCard
           icon={<Repeat className="h-4 w-4" />}
           label="Despesas fixas / mês"
@@ -422,14 +434,23 @@ function FinanceiroPage() {
           loading={loadingTx}
         />
         <KpiCard
+          icon={<Package className="h-4 w-4" />}
+          label="Capital em estoque"
+          value={fmtBRL(stockValue?.cost ?? 0)}
+          sub={`${stockValue?.units ?? 0} unid. • potencial ${fmtBRL(stockValue?.potentialRevenue ?? 0)}`}
+          color="#D97706"
+          loading={!stockValue}
+        />
+        <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Lucro líquido projetado"
-          value={fmtBRL(lucroPedidos.lucro - recurringMonthly)}
-          sub="Pedidos − fixas mensais"
-          color={lucroPedidos.lucro - recurringMonthly >= 0 ? "#16A34A" : "#DC2626"}
-          loading={!orders || !recurring}
+          value={fmtBRL(lucroLiquido)}
+          sub="Saldo do período − fixas mensais"
+          color={lucroLiquido >= 0 ? "#16A34A" : "#DC2626"}
+          loading={!orders || !recurring || loadingTx}
         />
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <div className="-mx-1 overflow-x-auto px-1">
