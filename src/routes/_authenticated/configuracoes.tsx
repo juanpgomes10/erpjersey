@@ -8,7 +8,8 @@ import {
   Bell,
   Shield,
   Palette,
-  
+  Settings as SettingsIcon,
+  ImageIcon,
   Upload,
   Eye,
   EyeOff,
@@ -17,6 +18,7 @@ import {
   Sun,
   Moon,
   Download,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
