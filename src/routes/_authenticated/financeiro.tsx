@@ -737,6 +737,7 @@ function NewTransactionDialog({
   const [categoryKey, setCategoryKey] = useState<string>("marketing");
   const [categoryCustom, setCategoryCustom] = useState("");
   const [saqueMotivo, setSaqueMotivo] = useState("");
+  const [expenseNature, setExpenseNature] = useState<"variavel" | "fixa">("variavel");
   const [saving, setSaving] = useState(false);
 
   function reset() {
@@ -746,6 +747,7 @@ function NewTransactionDialog({
     setNotes("");
     setCategoryKey("marketing"); setCategoryCustom("");
     setSaqueMotivo("");
+    setExpenseNature("variavel");
   }
 
   function changeKind(k: Kind) {
