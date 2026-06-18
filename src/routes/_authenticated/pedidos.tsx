@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
+import { Plus, Search, ClipboardList, X, Trash2, UserPlus, UserCheck, ChevronRight, ChevronLeft, Pencil, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { downloadXlsx, todayStr } from "@/lib/export-xlsx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, fmtDateTime, paymentMethodLabel } from "@/lib/format";
@@ -235,11 +237,27 @@ export const Route = createFileRoute("/_authenticated/pedidos")({
 });
 
 function PedidosPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<DisplayStatus | "todos">("todos");
   const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "12meses">("todos");
   const [openNew, setOpenNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<string>("__keep__");
+  const [bulkFulfillment, setBulkFulfillment] = useState<string>("__keep__");
+  const [bulkPayment, setBulkPayment] = useState<string>("__keep__");
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const clearSelection = () => setSelected(new Set());
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders"],
@@ -310,6 +328,102 @@ function PedidosPage() {
 
   const detail = useMemo(() => (orders ?? []).find((o) => o.id === detailId) ?? null, [orders, detailId]);
 
+  const filteredIds = useMemo(() => filtered.map((o) => o.id), [filtered]);
+  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
+  const someSelected = filteredIds.some((id) => selected.has(id));
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (allSelected) {
+        const n = new Set(prev);
+        filteredIds.forEach((id) => n.delete(id));
+        return n;
+      }
+      const n = new Set(prev);
+      filteredIds.forEach((id) => n.add(id));
+      return n;
+    });
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["orders"] });
+    qc.invalidateQueries({ queryKey: ["sales"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["fin-tx"] });
+    qc.invalidateQueries({ queryKey: ["fin-orders"] });
+  };
+
+  const bulkUpdate = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) return;
+      const patch: Record<string, string> = {};
+      if (bulkStatus !== "__keep__") patch.status = bulkStatus;
+      if (bulkFulfillment !== "__keep__") patch.fulfillment_status = bulkFulfillment;
+      if (bulkPayment !== "__keep__") patch.payment_method = bulkPayment;
+      if (Object.keys(patch).length === 0) throw new Error("Nada para alterar");
+      const { error } = await supabase.from("orders").update(patch as never).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pedidos atualizados");
+      invalidateAll();
+      setBulkEditOpen(false);
+      setBulkStatus("__keep__");
+      setBulkFulfillment("__keep__");
+      setBulkPayment("__keep__");
+      clearSelection();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) return;
+      const { error } = await supabase.from("orders").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pedidos excluídos");
+      invalidateAll();
+      setBulkDeleteOpen(false);
+      clearSelection();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
+  });
+
+  const exportSelected = () => {
+    const ids = selected;
+    const rows = (orders ?? [])
+      .filter((o) => ids.has(o.id))
+      .map((o) => {
+        const total = Number(o.total_value) - Number(o.discount || 0);
+        return {
+          "Nº": orderNum(o.order_number),
+          Cliente: o.customer?.name ?? "",
+          Telefone: o.customer?.phone ?? "",
+          Produtos: o.items
+            .map((i) => `${i.product?.name ?? i.product_name ?? "Produto"}${i.size ? ` (${i.size})` : ""} x${i.quantity}`)
+            .join(", "),
+          Total: total.toFixed(2),
+          "Forma de pagamento": paymentMethodLabel[o.payment_method] ?? o.payment_method,
+          Status: STATUS_LABEL[financeStatusOf(o)],
+          Logística: (() => {
+            const l = logisticsStatusOf(o);
+            return l ? STATUS_LABEL[l] : "";
+          })(),
+          Data: fmtDateTime(o.created_at),
+          Fornecedor: o.supplier_name ?? "",
+          Rastreio: o.tracking_code ?? "",
+        };
+      });
+    if (rows.length === 0) {
+      toast.error("Nenhum pedido selecionado");
+      return;
+    }
+    downloadXlsx(`pedidos-${todayStr()}.xlsx`, { Pedidos: rows });
+    toast.success(`${rows.length} pedido(s) exportado(s)`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -379,6 +493,28 @@ function PedidosPage() {
             </Select>
           </div>
 
+          {selected.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color:#2563EB] bg-[color:#2563EB10] px-3 py-2">
+              <span className="text-sm font-medium text-[color:#2563EB]">
+                {selected.size} selecionado(s)
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Editar em massa
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportSelected}>
+                  <Download className="mr-1 h-3.5 w-3.5" /> Exportar
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="mr-1 h-3.5 w-3.5" /> Excluir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  <X className="mr-1 h-3.5 w-3.5" /> Limpar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="mt-4 space-y-2">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
@@ -396,6 +532,13 @@ function PedidosPage() {
                 <table className="w-full text-sm">
                   <thead className="text-xs uppercase text-muted-foreground">
                     <tr className="border-b border-border">
+                      <th className="px-3 py-2 w-8">
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleAll}
+                          aria-label="Selecionar todos"
+                        />
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">Nº</th>
                       <th className="px-3 py-2 text-left font-medium">Cliente</th>
                       <th className="px-3 py-2 text-left font-medium">Produtos</th>
@@ -416,8 +559,16 @@ function PedidosPage() {
                       return (
                       <tr
                         key={o.id}
-                        className="group border-b border-border last:border-none hover:bg-accent/40"
+                        data-state={selected.has(o.id) ? "selected" : undefined}
+                        className="group border-b border-border last:border-none hover:bg-accent/40 data-[state=selected]:bg-accent/60"
                       >
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selected.has(o.id)}
+                            onCheckedChange={() => toggleOne(o.id)}
+                            aria-label={`Selecionar ${orderNum(o.order_number)}`}
+                          />
+                        </td>
                         <td className="px-3 py-3 font-medium tabular" onClick={() => setDetailId(o.id)}>
                           <div className="flex items-center gap-2 cursor-pointer">
                             <span>{orderNum(o.order_number)}</span>
@@ -450,27 +601,40 @@ function PedidosPage() {
               <div className="mt-4 space-y-2 md:hidden">
                 {filtered.map((o) => {
                   const total = Number(o.total_value) - Number(o.discount || 0);
+                  const isSel = selected.has(o.id);
                   return (
-                    <button
+                    <div
                       key={o.id}
-                      onClick={() => setDetailId(o.id)}
-                      className="w-full rounded-md border border-border bg-card p-3 text-left hover:bg-accent/40"
+                      className={`flex items-start gap-2 rounded-md border bg-card p-3 ${isSel ? "border-[color:#2563EB] bg-accent/40" : "border-border"}`}
                     >
+                      <div className="pt-1">
+                        <Checkbox
+                          checked={isSel}
+                          onCheckedChange={() => toggleOne(o.id)}
+                          aria-label={`Selecionar ${orderNum(o.order_number)}`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDetailId(o.id)}
+                        className="flex-1 text-left"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular">{orderNum(o.order_number)}</span>
                           </div>
-                        <OrderStatusBadges o={o} />
-                      </div>
-                      <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {o.items.length} item(ns) · {paymentMethodLabel[o.payment_method] ?? o.payment_method}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{fmtDate(o.created_at)}</span>
-                        <span className="text-sm font-semibold tabular">{fmtBRL(total)}</span>
-                      </div>
-                    </button>
+                          <OrderStatusBadges o={o} />
+                        </div>
+                        <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {o.items.length} item(ns) · {paymentMethodLabel[o.payment_method] ?? o.payment_method}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">{fmtDate(o.created_at)}</span>
+                          <span className="text-sm font-semibold tabular">{fmtBRL(total)}</span>
+                        </div>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -481,6 +645,83 @@ function PedidosPage() {
 
       <OrderDetailDrawer order={detail} onClose={() => setDetailId(null)} />
       <NewOrderDialog open={openNew} onOpenChange={setOpenNew} />
+
+      <Dialog open={bulkEditOpen} onOpenChange={setBulkEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar {selected.size} pedido(s)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Status financeiro</Label>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Logística</Label>
+              <Select value={bulkFulfillment} onValueChange={setBulkFulfillment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="aguardando_fornecedor">Aguardando fornecedor</SelectItem>
+                  <SelectItem value="aguardando_envio_fornecedor">Aguardando envio do fornecedor</SelectItem>
+                  <SelectItem value="enviado">Enviado</SelectItem>
+                  <SelectItem value="aguardando_retirada">Aguardando retirada</SelectItem>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Forma de pagamento</Label>
+              <Select value={bulkPayment} onValueChange={setBulkPayment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkEditOpen(false)}>Cancelar</Button>
+            <Button onClick={() => bulkUpdate.mutate()} disabled={bulkUpdate.isPending}>
+              {bulkUpdate.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selected.size} pedido(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Os pedidos selecionados serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); bulkDelete.mutate(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDelete.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
