@@ -367,6 +367,17 @@ function FinanceiroPage() {
           sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
           color="#16A34A"
           loading={loadingTx || !orders}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "entrada");
+            setDetail({
+              title: "Receitas do período",
+              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(entradas)}`,
+              items,
+              total: totalReceitas,
+              link: { to: "/vendas", label: "Ver vendas" },
+              emptyLabel: "Sem outras entradas manuais. As vendas estão em /vendas.",
+            });
+          }}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -375,6 +386,17 @@ function FinanceiroPage() {
           sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
           color="#DC2626"
           loading={loadingTx || !orders}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "saida");
+            setDetail({
+              title: "Despesas do período",
+              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(saidas)}`,
+              items,
+              total: totalDespesas,
+              link: { to: "/pedidos", label: "Ver pedidos" },
+              emptyLabel: "Sem despesas manuais no período",
+            });
+          }}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
@@ -424,6 +446,16 @@ function FinanceiroPage() {
           sub="Lançamentos manuais (marketing, fornecedor, etc.)"
           color="#DC2626"
           loading={loadingTx}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring);
+            setDetail({
+              title: "Despesas variáveis",
+              description: "Lançamentos manuais marcados como variáveis no período",
+              items,
+              total: despesasVariaveis,
+              emptyLabel: "Nenhuma despesa variável no período",
+            });
+          }}
         />
 
         <KpiCard
@@ -433,6 +465,16 @@ function FinanceiroPage() {
           sub={`${(recurring ?? []).filter((t) => t.type === "saida").length} lançamentos`}
           color="#7C3AED"
           loading={!recurring}
+          onClick={() => {
+            const items = (recurring ?? []).filter((t) => t.type === "saida");
+            setDetail({
+              title: "Despesas fixas",
+              description: "Lançamentos recorrentes mensais",
+              items,
+              total: recurringMonthly,
+              emptyLabel: "Nenhuma despesa fixa cadastrada",
+            });
+          }}
         />
         <KpiCard
           icon={<Banknote className="h-4 w-4" />}
@@ -440,6 +482,18 @@ function FinanceiroPage() {
           value={fmtBRL(saquesTotal)}
           color="#D97706"
           loading={loadingTx}
+          onClick={() => {
+            const items = (txs ?? []).filter(
+              (t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"),
+            );
+            setDetail({
+              title: "Saques / Retiradas",
+              description: "Retiradas do proprietário no período",
+              items,
+              total: saquesTotal,
+              emptyLabel: "Nenhum saque no período",
+            });
+          }}
         />
         <KpiCard
           icon={<Package className="h-4 w-4" />}
