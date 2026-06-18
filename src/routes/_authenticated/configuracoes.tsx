@@ -95,23 +95,25 @@ function ConfiguracoesPage() {
       <header className="mb-6">
         <h1 className="font-sora text-2xl font-semibold tracking-tight">Configurações</h1>
         <p className="text-sm text-muted-foreground">
-          Gerencie seu perfil, loja, notificações e segurança.
+          Personalize o sistema, gerencie sua loja e ajuste preferências.
         </p>
       </header>
 
-      <Tabs defaultValue="perfil" className="flex flex-col gap-6 lg:flex-row">
+      <Tabs defaultValue="geral" className="flex flex-col gap-6 lg:flex-row">
         <TabsList
           className="h-auto w-full flex-row flex-wrap justify-start gap-1 bg-[color:#111827] p-2 lg:w-56 lg:flex-col lg:items-stretch"
         >
+          <TabTrigger value="geral" icon={SettingsIcon} label="Geral" />
           <TabTrigger value="perfil" icon={UserIcon} label="Perfil" />
           <TabTrigger value="loja" icon={StoreIcon} label="Loja" />
+          <TabTrigger value="aparencia" icon={Palette} label="Aparência" />
           <TabTrigger value="notificacoes" icon={Bell} label="Notificações" />
           <TabTrigger value="seguranca" icon={Shield} label="Segurança" />
-          <TabTrigger value="aparencia" icon={Palette} label="Aparência" />
           <TabTrigger value="exportar" icon={Download} label="Exportar Dados" />
         </TabsList>
 
         <div className="min-w-0 flex-1">
+          <TabsContent value="geral" className="m-0"><GeralTab /></TabsContent>
           <TabsContent value="perfil" className="m-0"><PerfilTab /></TabsContent>
           <TabsContent value="loja" className="m-0"><LojaTab /></TabsContent>
           <TabsContent value="notificacoes" className="m-0"><NotificacoesTab /></TabsContent>
@@ -121,6 +123,178 @@ function ConfiguracoesPage() {
         </div>
       </Tabs>
     </div>
+  );
+}
+
+/* ---------------- GERAL ---------------- */
+
+const USE_STORE_LOGO_KEY = "erpjersey:use-store-logo";
+
+export function getUseStoreLogo(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(USE_STORE_LOGO_KEY) === "1";
+}
+
+function GeralTab() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const { data: store } = useQuery({
+    queryKey: ["store-logo-pref"],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: prof } = await supabase.from("profiles").select("store_id").eq("id", user!.id).maybeSingle();
+      if (!prof?.store_id) return null;
+      const { data } = await supabase.from("stores").select("id, name, logo_url").eq("id", prof.store_id).maybeSingle();
+      return data;
+    },
+  });
+
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "dark";
+    return (localStorage.getItem("theme") as "light" | "dark") || "dark";
+  });
+  const [useStoreLogo, setUseStoreLogo] = useState<boolean>(() => getUseStoreLogo());
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  function toggleStoreLogo(v: boolean) {
+    setUseStoreLogo(v);
+    localStorage.setItem(USE_STORE_LOGO_KEY, v ? "1" : "0");
+    window.dispatchEvent(new Event("app-logo-change"));
+    toast.success(v ? "Logo da loja ativada" : "Logo padrão restaurada");
+  }
+
+  async function uploadLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !store) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Imagem deve ter no máximo 5MB"); return; }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "png";
+      const path = `${store.id}/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("store-logos").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: signed } = await supabase.storage.from("store-logos").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const url = signed?.signedUrl ?? null;
+      await supabase.from("stores").update({ logo_url: url }).eq("id", store.id);
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["store-full"] });
+      qc.invalidateQueries({ queryKey: ["store-logo-pref"] });
+      if (!useStoreLogo) toggleStoreLogo(true);
+      else window.dispatchEvent(new Event("app-logo-change"));
+      toast.success("Logo enviada");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao enviar logo");
+    } finally {
+      setUploading(false);
+      if (logoFileRef.current) logoFileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-sora text-base">Identidade visual</CardTitle>
+          <CardDescription>Use a logo da sua loja em vez da logo padrão do sistema.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md border border-border bg-[color:#0F172A]">
+              {store?.logo_url ? (
+                <img src={store.logo_url} alt="Logo" className="h-full w-full object-contain" />
+              ) : (
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex-1">
+              <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={uploadLogo} />
+              <Button variant="outline" size="sm" onClick={() => logoFileRef.current?.click()} disabled={uploading || !store}>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {store?.logo_url ? "Trocar logo" : "Enviar logo"}
+              </Button>
+              <p className="mt-1 text-xs text-muted-foreground">PNG ou JPG até 5MB. Aparece na barra lateral.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
+            <div>
+              <div className="text-sm">Usar minha logo na página principal</div>
+              <div className="text-xs text-muted-foreground">
+                {store?.logo_url ? "Substitui a logo do ERPJersey no menu." : "Envie uma logo primeiro."}
+              </div>
+            </div>
+            <Switch checked={useStoreLogo} disabled={!store?.logo_url} onCheckedChange={toggleStoreLogo} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-sora text-base">Tema</CardTitle>
+          <CardDescription>Escolha entre modo claro ou escuro.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Button variant={theme === "dark" ? "default" : "outline"} onClick={() => setTheme("dark")}>
+              <Moon className="h-4 w-4" /> Escuro
+            </Button>
+            <Button variant={theme === "light" ? "default" : "outline"} onClick={() => setTheme("light")}>
+              <Sun className="h-4 w-4" /> Claro
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-sora text-base">Atalhos</CardTitle>
+          <CardDescription>Acesse rapidamente outras configurações.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-2">
+          <ShortcutRow icon={UserIcon} label="Perfil" hint="Seus dados pessoais" target="perfil" />
+          <ShortcutRow icon={StoreIcon} label="Loja" hint="Dados públicos da loja" target="loja" />
+          <ShortcutRow icon={Bell} label="Notificações" hint="Alertas e canais" target="notificacoes" />
+          <ShortcutRow icon={Shield} label="Segurança" hint="Senha e sessões" target="seguranca" />
+          <ShortcutRow icon={Palette} label="Aparência" hint="Tema e cores" target="aparencia" />
+          <ShortcutRow icon={Download} label="Exportar Dados" hint="Planilhas em Excel" target="exportar" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ShortcutRow({
+  icon: Icon, label, hint, target,
+}: { icon: typeof UserIcon; label: string; hint: string; target: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const trigger = document.querySelector<HTMLButtonElement>(`[data-state][role="tab"][value="${target}"], [role="tab"][data-radix-collection-item][value="${target}"]`);
+        // Fallback: find by text match
+        const tabs = document.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+        const match = trigger ?? Array.from(tabs).find((t) => t.getAttribute("data-value") === target || t.textContent?.trim().toLowerCase().includes(label.toLowerCase()));
+        match?.click();
+      }}
+      className="flex items-center gap-3 rounded-md border border-border bg-[color:#0F172A] p-3 text-left transition-colors hover:bg-[color:#111827]"
+    >
+      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[color:rgba(37,99,235,0.12)] text-[color:#2563EB]">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="truncate text-xs text-muted-foreground">{hint}</div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+    </button>
   );
 }
 
