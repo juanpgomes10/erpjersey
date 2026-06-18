@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, TrendingUp, TrendingDown, Wallet, Package, DollarSign, Repeat, Banknote } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, Wallet, Package, DollarSign, Repeat, Banknote, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import {
   ResponsiveContainer,
@@ -104,6 +104,14 @@ function FinanceiroPage() {
   const [openNew, setOpenNew] = useState(false);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [expenseSort, setExpenseSort] = useState<"recent" | "oldest" | "high" | "low">("recent");
+  const [detail, setDetail] = useState<null | {
+    title: string;
+    description?: string;
+    items: Transaction[];
+    total: number;
+    link?: { to: string; label: string };
+    emptyLabel?: string;
+  }>(null);
 
   const sinceISO = useMemo(() => {
     const d = new Date();
@@ -359,6 +367,17 @@ function FinanceiroPage() {
           sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
           color="#16A34A"
           loading={loadingTx || !orders}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "entrada");
+            setDetail({
+              title: "Receitas do período",
+              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(entradas)}`,
+              items,
+              total: totalReceitas,
+              link: { to: "/vendas", label: "Ver vendas" },
+              emptyLabel: "Sem outras entradas manuais. As vendas estão em /vendas.",
+            });
+          }}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -367,6 +386,17 @@ function FinanceiroPage() {
           sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
           color="#DC2626"
           loading={loadingTx || !orders}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "saida");
+            setDetail({
+              title: "Despesas do período",
+              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(saidas)}`,
+              items,
+              total: totalDespesas,
+              link: { to: "/pedidos", label: "Ver pedidos" },
+              emptyLabel: "Sem despesas manuais no período",
+            });
+          }}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
@@ -416,6 +446,16 @@ function FinanceiroPage() {
           sub="Lançamentos manuais (marketing, fornecedor, etc.)"
           color="#DC2626"
           loading={loadingTx}
+          onClick={() => {
+            const items = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring);
+            setDetail({
+              title: "Despesas variáveis",
+              description: "Lançamentos manuais marcados como variáveis no período",
+              items,
+              total: despesasVariaveis,
+              emptyLabel: "Nenhuma despesa variável no período",
+            });
+          }}
         />
 
         <KpiCard
@@ -425,6 +465,16 @@ function FinanceiroPage() {
           sub={`${(recurring ?? []).filter((t) => t.type === "saida").length} lançamentos`}
           color="#7C3AED"
           loading={!recurring}
+          onClick={() => {
+            const items = (recurring ?? []).filter((t) => t.type === "saida");
+            setDetail({
+              title: "Despesas fixas",
+              description: "Lançamentos recorrentes mensais",
+              items,
+              total: recurringMonthly,
+              emptyLabel: "Nenhuma despesa fixa cadastrada",
+            });
+          }}
         />
         <KpiCard
           icon={<Banknote className="h-4 w-4" />}
@@ -432,6 +482,18 @@ function FinanceiroPage() {
           value={fmtBRL(saquesTotal)}
           color="#D97706"
           loading={loadingTx}
+          onClick={() => {
+            const items = (txs ?? []).filter(
+              (t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"),
+            );
+            setDetail({
+              title: "Saques / Retiradas",
+              description: "Retiradas do proprietário no período",
+              items,
+              total: saquesTotal,
+              emptyLabel: "Nenhum saque no período",
+            });
+          }}
         />
         <KpiCard
           icon={<Package className="h-4 w-4" />}
@@ -601,6 +663,40 @@ function FinanceiroPage() {
         }}
       />
 
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>{detail?.title}</DialogTitle>
+            {detail?.description && (
+              <p className="text-xs text-muted-foreground">{detail.description}</p>
+            )}
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {detail?.items.length ?? 0} lançamento(s) manuais
+              </span>
+              <span className="font-sora font-semibold">Total: {fmtBRL(detail?.total ?? 0)}</span>
+            </div>
+            {detail?.link && (
+              <Link
+                to={detail.link.to}
+                onClick={() => setDetail(null)}
+                className="inline-flex items-center gap-1 text-xs text-[color:#2563EB] hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> {detail.link.label}
+              </Link>
+            )}
+            <TxTable
+              items={detail?.items ?? []}
+              loading={false}
+              onDelete={(t) => setToDelete(t)}
+              emptyLabel={detail?.emptyLabel ?? "Sem registros"}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -623,10 +719,17 @@ function FinanceiroPage() {
 }
 
 function KpiCard({
-  icon, label, value, sub, color, loading,
-}: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string; loading?: boolean }) {
+  icon, label, value, sub, color, loading, onClick,
+}: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string; loading?: boolean; onClick?: () => void }) {
+  const clickable = !!onClick && !loading;
   return (
-    <Card>
+    <Card
+      onClick={clickable ? onClick : undefined}
+      className={clickable ? "cursor-pointer transition-colors hover:bg-muted/40" : undefined}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}
+    >
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span style={{ color }}>{icon}</span>
