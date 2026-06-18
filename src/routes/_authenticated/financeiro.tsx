@@ -780,7 +780,7 @@ function NewTransactionDialog({
       txType = kind === "despesa" ? "saida" : "entrada";
       dbCategory = cat.db;
       finalDescription = `[${label}] ${description.trim()}`;
-      recurring = false;
+      recurring = kind === "despesa" && expenseNature === "fixa";
     }
 
     const createdAt = new Date(`${date}T12:00:00`).toISOString();
