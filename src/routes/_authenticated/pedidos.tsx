@@ -601,27 +601,40 @@ function PedidosPage() {
               <div className="mt-4 space-y-2 md:hidden">
                 {filtered.map((o) => {
                   const total = Number(o.total_value) - Number(o.discount || 0);
+                  const isSel = selected.has(o.id);
                   return (
-                    <button
+                    <div
                       key={o.id}
-                      onClick={() => setDetailId(o.id)}
-                      className="w-full rounded-md border border-border bg-card p-3 text-left hover:bg-accent/40"
+                      className={`flex items-start gap-2 rounded-md border bg-card p-3 ${isSel ? "border-[color:#2563EB] bg-accent/40" : "border-border"}`}
                     >
+                      <div className="pt-1">
+                        <Checkbox
+                          checked={isSel}
+                          onCheckedChange={() => toggleOne(o.id)}
+                          aria-label={`Selecionar ${orderNum(o.order_number)}`}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDetailId(o.id)}
+                        className="flex-1 text-left"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="font-medium tabular">{orderNum(o.order_number)}</span>
                           </div>
-                        <OrderStatusBadges o={o} />
-                      </div>
-                      <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {o.items.length} item(ns) · {paymentMethodLabel[o.payment_method] ?? o.payment_method}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">{fmtDate(o.created_at)}</span>
-                        <span className="text-sm font-semibold tabular">{fmtBRL(total)}</span>
-                      </div>
-                    </button>
+                          <OrderStatusBadges o={o} />
+                        </div>
+                        <p className="mt-1 text-sm font-medium truncate">{o.customer?.name ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {o.items.length} item(ns) · {paymentMethodLabel[o.payment_method] ?? o.payment_method}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">{fmtDate(o.created_at)}</span>
+                          <span className="text-sm font-semibold tabular">{fmtBRL(total)}</span>
+                        </div>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
