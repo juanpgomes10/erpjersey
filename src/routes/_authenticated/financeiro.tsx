@@ -300,7 +300,7 @@ function FinanceiroPage() {
       label: new Date(r.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
       lucro: r.entradas - r.saidas,
     }));
-  }, [txs, period]);
+  }, [txs, orders, period]);
 
   // Despesas por categoria
   const byCategory = useMemo(() => {
