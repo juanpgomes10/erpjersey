@@ -104,6 +104,14 @@ function FinanceiroPage() {
   const [openNew, setOpenNew] = useState(false);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [expenseSort, setExpenseSort] = useState<"recent" | "oldest" | "high" | "low">("recent");
+  const [detail, setDetail] = useState<null | {
+    title: string;
+    description?: string;
+    items: Transaction[];
+    total: number;
+    link?: { to: string; label: string };
+    emptyLabel?: string;
+  }>(null);
 
   const sinceISO = useMemo(() => {
     const d = new Date();
