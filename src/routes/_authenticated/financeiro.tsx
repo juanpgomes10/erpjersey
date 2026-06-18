@@ -191,7 +191,7 @@ function FinanceiroPage() {
   const saquesTotal = (txs ?? [])
     .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
     .reduce((s, t) => s + Number(t.value), 0);
-  const saldo = entradas - saidas;
+  void entradas; void saidas;
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
