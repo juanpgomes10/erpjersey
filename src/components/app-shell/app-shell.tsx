@@ -52,6 +52,23 @@ const nav: NavItem[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: profile } = useProfile();
+  const [useStoreLogo, setUseStoreLogo] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("erpjersey:use-store-logo") === "1";
+  });
+  useEffect(() => {
+    function sync() {
+      setUseStoreLogo(localStorage.getItem("erpjersey:use-store-logo") === "1");
+    }
+    window.addEventListener("app-logo-change", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("app-logo-change", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  const overrideLogo = useStoreLogo ? profile?.store?.logo_url ?? null : null;
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Sidebar desktop */}
@@ -60,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         style={{ backgroundColor: "var(--sidebar)" }}
       >
         <div className="flex h-16 items-center px-5 border-b border-border">
-          <Logo size={26} />
+          <Logo size={26} overrideUrl={overrideLogo} />
         </div>
         <NavList onNavigate={() => setMobileOpen(false)} />
       </aside>
@@ -74,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             style={{ backgroundColor: "var(--sidebar)" }}
           >
             <div className="flex h-16 items-center justify-between px-5 border-b border-border">
-              <Logo size={26} />
+              <Logo size={26} overrideUrl={overrideLogo} />
             </div>
             <NavList onNavigate={() => setMobileOpen(false)} />
           </aside>
@@ -83,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setMobileOpen(true)} />
+        <Header onMenuClick={() => setMobileOpen(true)} overrideLogo={overrideLogo} />
         <main className="w-full min-w-0 flex-1 overflow-x-hidden p-4 md:p-6 lg:p-8">{children}</main>
       </div>
     </div>
