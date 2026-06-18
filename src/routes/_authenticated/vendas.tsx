@@ -487,7 +487,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       // 2. Pedido (sempre criar — toda venda gera um pedido)
       const trackingTrim = trackingCode.trim();
       const supplierTrim = supplierName.trim();
-      const orderStatus = fulfillmentToOrderStatus(fulfillmentStatus as FulfillmentStatus);
+      const orderStatus = fulfillmentToOrderStatus(fulfillmentStatus as FulfillmentStatus, paidValue);
 
       const { data: order, error: orderErr } = await supabase
         .from("orders")
