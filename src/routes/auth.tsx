@@ -3,7 +3,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { Logo, LogoBag } from "@/components/brand/logo";
+import { Logo } from "@/components/brand/logo";
+import authLogoAsset from "@/assets/erpjersey-auth-logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +90,7 @@ function AuthPage() {
         <Logo size={36} />
         <div className="text-white">
           <div className="mb-8 flex justify-center">
-            <LogoBag size={180} />
+            <img src={authLogoAsset.url} alt="ERPJersey" width={180} height={180} style={{ width: 180, height: 180, objectFit: "contain" }} />
           </div>
           <h1 className="font-sora text-4xl font-semibold leading-tight">
             Tudo sobre sua loja de camisas de time.
