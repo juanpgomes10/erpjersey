@@ -74,9 +74,14 @@ const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
 
 // Mapeia o status visual escolhido pelo usuário para o status canônico do pedido,
 // que alimenta os filtros existentes (pendente / pago / enviado / entregue).
-function fulfillmentToOrderStatus(f: FulfillmentStatus): "pendente" | "pago" | "enviado" | "entregue" {
+function fulfillmentToOrderStatus(
+  f: FulfillmentStatus,
+  paidValue: number = 0,
+): "pendente" | "pago" | "enviado" | "entregue" {
+  // Se o cliente já pagou (valor pago > 0), o pedido nunca é "pendente",
+  // mesmo que ainda esteja aguardando o fornecedor.
   switch (f) {
-    case "aguardando_fornecedor": return "pendente";
+    case "aguardando_fornecedor": return paidValue > 0 ? "pago" : "pendente";
     case "aguardando_envio_fornecedor": return "pago";
     case "enviado": return "enviado";
     case "aguardando_retirada": return "enviado";
