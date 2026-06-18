@@ -90,7 +90,7 @@ function AuthPage() {
         <Logo size={36} />
         <div className="text-white">
           <div className="mb-8 flex justify-center">
-            <LogoBag size={180} />
+            <img src={authLogoAsset.url} alt="ERPJersey" width={180} height={180} style={{ width: 180, height: 180, objectFit: "contain" }} />
           </div>
           <h1 className="font-sora text-4xl font-semibold leading-tight">
             Tudo sobre sua loja de camisas de time.
