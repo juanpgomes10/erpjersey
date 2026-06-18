@@ -90,6 +90,7 @@ function maskPhone(v: string) {
 }
 
 function ConfiguracoesPage() {
+  const [tab, setTab] = useState("geral");
   return (
     <div className="mx-auto w-full max-w-5xl">
       <header className="mb-6">
@@ -99,7 +100,7 @@ function ConfiguracoesPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="geral" className="flex flex-col gap-6 lg:flex-row">
+      <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-6 lg:flex-row">
         <TabsList
           className="h-auto w-full flex-row flex-wrap justify-start gap-1 bg-[color:#111827] p-2 lg:w-56 lg:flex-col lg:items-stretch"
         >
@@ -113,7 +114,7 @@ function ConfiguracoesPage() {
         </TabsList>
 
         <div className="min-w-0 flex-1">
-          <TabsContent value="geral" className="m-0"><GeralTab /></TabsContent>
+          <TabsContent value="geral" className="m-0"><GeralTab onNavigate={setTab} /></TabsContent>
           <TabsContent value="perfil" className="m-0"><PerfilTab /></TabsContent>
           <TabsContent value="loja" className="m-0"><LojaTab /></TabsContent>
           <TabsContent value="notificacoes" className="m-0"><NotificacoesTab /></TabsContent>
