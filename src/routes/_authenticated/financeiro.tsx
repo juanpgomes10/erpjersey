@@ -227,38 +227,30 @@ function FinanceiroPage() {
 
   const freteCost = lucroPedidos.frete;
 
-  // Custos futuros: pedidos ainda pendentes no período (custo dos itens + frete) +
-  // despesas não pagas com vencimento no período + despesas fixas mensais.
+  // ====== Totais consolidados (alinhados ao Dashboard) ======
+  // Receita do período = faturamento dos pedidos (igual ao Dashboard) + entradas manuais
+  // Despesas do período = custo dos pedidos + frete dos pedidos + saídas manuais
+  const totalReceitas = lucroPedidos.receita + entradas;
+  const totalDespesas = lucroPedidos.custo + lucroPedidos.frete + saidas;
+  const saldoConsolidado = totalReceitas - totalDespesas;
+
+  // Custos futuros: despesas não pagas no período + despesas fixas mensais.
+  // (custo de pedidos pendentes já está contabilizado em totalDespesas, então
+  // NÃO entra aqui para evitar duplicidade.)
   const custosFuturos = useMemo(() => {
-    let pedidosPendentes = 0;
-    (orders ?? []).forEach((o: any) => {
-      if (o.status !== "pendente") return;
-      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
-      let custoItens = 0;
-      const saleItems: any[] | undefined = sale?.sale_items;
-      if (saleItems && saleItems.length > 0) {
-        saleItems.forEach((it) => {
-          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
-        });
-      } else {
-        (o.order_items ?? []).forEach((it: any) => {
-          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
-        });
-      }
-      pedidosPendentes += custoItens + Number(o.shipping_cost ?? 0);
-    });
     const despesasAPagar = (txs ?? [])
       .filter((t) => t.type === "saida" && !t.paid)
       .reduce((s, t) => s + Number(t.value), 0);
     return {
-      pedidosPendentes,
       despesasAPagar,
       fixas: recurringMonthly,
-      total: pedidosPendentes + despesasAPagar + recurringMonthly,
+      total: despesasAPagar + recurringMonthly,
     };
-  }, [orders, txs, recurringMonthly]);
+  }, [txs, recurringMonthly]);
 
-  const saldoProjetado = saldo - custosFuturos.total;
+  const saldoProjetado = saldoConsolidado - custosFuturos.total;
+  const lucroLiquido = saldoConsolidado - recurringMonthly;
+
 
 
   // Série temporal: entradas vs saídas por dia
