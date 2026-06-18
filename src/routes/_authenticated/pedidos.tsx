@@ -493,6 +493,28 @@ function PedidosPage() {
             </Select>
           </div>
 
+          {selected.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color:#2563EB] bg-[color:#2563EB10] px-3 py-2">
+              <span className="text-sm font-medium text-[color:#2563EB]">
+                {selected.size} selecionado(s)
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Editar em massa
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportSelected}>
+                  <Download className="mr-1 h-3.5 w-3.5" /> Exportar
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)}>
+                  <Trash2 className="mr-1 h-3.5 w-3.5" /> Excluir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  <X className="mr-1 h-3.5 w-3.5" /> Limpar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="mt-4 space-y-2">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
