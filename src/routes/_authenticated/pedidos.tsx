@@ -645,6 +645,83 @@ function PedidosPage() {
 
       <OrderDetailDrawer order={detail} onClose={() => setDetailId(null)} />
       <NewOrderDialog open={openNew} onOpenChange={setOpenNew} />
+
+      <Dialog open={bulkEditOpen} onOpenChange={setBulkEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar {selected.size} pedido(s)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Status financeiro</Label>
+              <Select value={bulkStatus} onValueChange={setBulkStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="cancelado">Cancelado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Logística</Label>
+              <Select value={bulkFulfillment} onValueChange={setBulkFulfillment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="aguardando_fornecedor">Aguardando fornecedor</SelectItem>
+                  <SelectItem value="aguardando_envio_fornecedor">Aguardando envio do fornecedor</SelectItem>
+                  <SelectItem value="enviado">Enviado</SelectItem>
+                  <SelectItem value="aguardando_retirada">Aguardando retirada</SelectItem>
+                  <SelectItem value="entregue">Entregue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Forma de pagamento</Label>
+              <Select value={bulkPayment} onValueChange={setBulkPayment}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">Não alterar</SelectItem>
+                  <SelectItem value="pix">PIX</SelectItem>
+                  <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="cartao_credito">Cartão de crédito</SelectItem>
+                  <SelectItem value="cartao_debito">Cartão de débito</SelectItem>
+                  <SelectItem value="transferencia">Transferência</SelectItem>
+                  <SelectItem value="boleto">Boleto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkEditOpen(false)}>Cancelar</Button>
+            <Button onClick={() => bulkUpdate.mutate()} disabled={bulkUpdate.isPending}>
+              {bulkUpdate.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selected.size} pedido(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Os pedidos selecionados serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); bulkDelete.mutate(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDelete.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
