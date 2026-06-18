@@ -136,7 +136,7 @@ export function getUseStoreLogo(): boolean {
   return localStorage.getItem(USE_STORE_LOGO_KEY) === "1";
 }
 
-function GeralTab() {
+function GeralTab({ onNavigate }: { onNavigate: (v: string) => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const { data: store } = useQuery({
