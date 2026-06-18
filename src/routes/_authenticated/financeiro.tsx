@@ -355,25 +355,36 @@ function FinanceiroPage() {
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Receitas"
-          value={fmtBRL(entradas)}
+          value={fmtBRL(totalReceitas)}
+          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
           color="#16A34A"
-          loading={loadingTx}
+          loading={loadingTx || !orders}
+        />
+        <KpiCard
+          icon={<TrendingDown className="h-4 w-4" />}
+          label="Despesas"
+          value={fmtBRL(totalDespesas)}
+          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
+          color="#DC2626"
+          loading={loadingTx || !orders}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
           label="Saldo do período"
-          value={fmtBRL(saldo)}
-          color={saldo >= 0 ? "#2563EB" : "#DC2626"}
-          loading={loadingTx}
+          value={fmtBRL(saldoConsolidado)}
+          sub="Receitas − Despesas"
+          color={saldoConsolidado >= 0 ? "#2563EB" : "#DC2626"}
+          loading={loadingTx || !orders}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
           label="Saldo projetado"
           value={fmtBRL(saldoProjetado)}
-          sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • Pendentes ${fmtBRL(custosFuturos.pedidosPendentes)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
+          sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
           color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
           loading={loadingTx || !orders || !recurring}
         />
+
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Lucro dos pedidos"
@@ -382,7 +393,6 @@ function FinanceiroPage() {
           color="#16A34A"
           loading={!orders}
         />
-
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
           label="Custo dos pedidos"
@@ -400,28 +410,14 @@ function FinanceiroPage() {
           loading={!orders}
         />
         <KpiCard
-          icon={<Package className="h-4 w-4" />}
-          label="Capital em estoque"
-          value={fmtBRL(stockValue?.cost ?? 0)}
-          sub={`${stockValue?.units ?? 0} unid. • potencial ${fmtBRL(stockValue?.potentialRevenue ?? 0)}`}
-          color="#D97706"
-          loading={!stockValue}
-        />
-        <KpiCard
-          icon={<Wallet className="h-4 w-4" />}
-          label="Patrimônio (saldo + estoque)"
-          value={fmtBRL(saldo + (stockValue?.cost ?? 0))}
-          color="#2563EB"
-          loading={loadingTx || !stockValue}
-        />
-
-        <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
-          label="Despesas variáveis"
+          label="Despesas variáveis (manuais)"
           value={fmtBRL(despesasVariaveis)}
+          sub="Lançamentos manuais (marketing, fornecedor, etc.)"
           color="#DC2626"
           loading={loadingTx}
         />
+
         <KpiCard
           icon={<Repeat className="h-4 w-4" />}
           label="Despesas fixas / mês"
@@ -438,14 +434,23 @@ function FinanceiroPage() {
           loading={loadingTx}
         />
         <KpiCard
+          icon={<Package className="h-4 w-4" />}
+          label="Capital em estoque"
+          value={fmtBRL(stockValue?.cost ?? 0)}
+          sub={`${stockValue?.units ?? 0} unid. • potencial ${fmtBRL(stockValue?.potentialRevenue ?? 0)}`}
+          color="#D97706"
+          loading={!stockValue}
+        />
+        <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
           label="Lucro líquido projetado"
-          value={fmtBRL(lucroPedidos.lucro - recurringMonthly)}
-          sub="Pedidos − fixas mensais"
-          color={lucroPedidos.lucro - recurringMonthly >= 0 ? "#16A34A" : "#DC2626"}
-          loading={!orders || !recurring}
+          value={fmtBRL(lucroLiquido)}
+          sub="Saldo do período − fixas mensais"
+          color={lucroLiquido >= 0 ? "#16A34A" : "#DC2626"}
+          loading={!orders || !recurring || loadingTx}
         />
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <div className="-mx-1 overflow-x-auto px-1">
