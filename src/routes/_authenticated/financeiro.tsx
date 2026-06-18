@@ -663,6 +663,40 @@ function FinanceiroPage() {
         }}
       />
 
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>{detail?.title}</DialogTitle>
+            {detail?.description && (
+              <p className="text-xs text-muted-foreground">{detail.description}</p>
+            )}
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {detail?.items.length ?? 0} lançamento(s) manuais
+              </span>
+              <span className="font-sora font-semibold">Total: {fmtBRL(detail?.total ?? 0)}</span>
+            </div>
+            {detail?.link && (
+              <Link
+                to={detail.link.to}
+                onClick={() => setDetail(null)}
+                className="inline-flex items-center gap-1 text-xs text-[color:#2563EB] hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> {detail.link.label}
+              </Link>
+            )}
+            <TxTable
+              items={detail?.items ?? []}
+              loading={false}
+              onDelete={(t) => setToDelete(t)}
+              emptyLabel={detail?.emptyLabel ?? "Sem registros"}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
