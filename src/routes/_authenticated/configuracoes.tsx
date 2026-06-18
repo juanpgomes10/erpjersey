@@ -260,12 +260,12 @@ function GeralTab({ onNavigate }: { onNavigate: (v: string) => void }) {
           <CardDescription>Acesse rapidamente outras configurações.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
-          <ShortcutRow icon={UserIcon} label="Perfil" hint="Seus dados pessoais" target="perfil" />
-          <ShortcutRow icon={StoreIcon} label="Loja" hint="Dados públicos da loja" target="loja" />
-          <ShortcutRow icon={Bell} label="Notificações" hint="Alertas e canais" target="notificacoes" />
-          <ShortcutRow icon={Shield} label="Segurança" hint="Senha e sessões" target="seguranca" />
-          <ShortcutRow icon={Palette} label="Aparência" hint="Tema e cores" target="aparencia" />
-          <ShortcutRow icon={Download} label="Exportar Dados" hint="Planilhas em Excel" target="exportar" />
+          <ShortcutRow icon={UserIcon} label="Perfil" hint="Seus dados pessoais" onClick={() => onNavigate("perfil")} />
+          <ShortcutRow icon={StoreIcon} label="Loja" hint="Dados públicos da loja" onClick={() => onNavigate("loja")} />
+          <ShortcutRow icon={Bell} label="Notificações" hint="Alertas e canais" onClick={() => onNavigate("notificacoes")} />
+          <ShortcutRow icon={Shield} label="Segurança" hint="Senha e sessões" onClick={() => onNavigate("seguranca")} />
+          <ShortcutRow icon={Palette} label="Aparência" hint="Tema e cores" onClick={() => onNavigate("aparencia")} />
+          <ShortcutRow icon={Download} label="Exportar Dados" hint="Planilhas em Excel" onClick={() => onNavigate("exportar")} />
         </CardContent>
       </Card>
     </div>
@@ -273,18 +273,12 @@ function GeralTab({ onNavigate }: { onNavigate: (v: string) => void }) {
 }
 
 function ShortcutRow({
-  icon: Icon, label, hint, target,
-}: { icon: typeof UserIcon; label: string; hint: string; target: string }) {
+  icon: Icon, label, hint, onClick,
+}: { icon: typeof UserIcon; label: string; hint: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        const trigger = document.querySelector<HTMLButtonElement>(`[data-state][role="tab"][value="${target}"], [role="tab"][data-radix-collection-item][value="${target}"]`);
-        // Fallback: find by text match
-        const tabs = document.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-        const match = trigger ?? Array.from(tabs).find((t) => t.getAttribute("data-value") === target || t.textContent?.trim().toLowerCase().includes(label.toLowerCase()));
-        match?.click();
-      }}
+      onClick={onClick}
       className="flex items-center gap-3 rounded-md border border-border bg-[color:#0F172A] p-3 text-left transition-colors hover:bg-[color:#111827]"
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[color:rgba(37,99,235,0.12)] text-[color:#2563EB]">
