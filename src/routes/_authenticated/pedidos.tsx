@@ -559,8 +559,16 @@ function PedidosPage() {
                       return (
                       <tr
                         key={o.id}
-                        className="group border-b border-border last:border-none hover:bg-accent/40"
+                        data-state={selected.has(o.id) ? "selected" : undefined}
+                        className="group border-b border-border last:border-none hover:bg-accent/40 data-[state=selected]:bg-accent/60"
                       >
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selected.has(o.id)}
+                            onCheckedChange={() => toggleOne(o.id)}
+                            aria-label={`Selecionar ${orderNum(o.order_number)}`}
+                          />
+                        </td>
                         <td className="px-3 py-3 font-medium tabular" onClick={() => setDetailId(o.id)}>
                           <div className="flex items-center gap-2 cursor-pointer">
                             <span>{orderNum(o.order_number)}</span>
