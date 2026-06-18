@@ -237,11 +237,27 @@ export const Route = createFileRoute("/_authenticated/pedidos")({
 });
 
 function PedidosPage() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<DisplayStatus | "todos">("todos");
   const [period, setPeriod] = useState<"todos" | "hoje" | "semana" | "mes" | "3meses" | "6meses" | "12meses">("todos");
   const [openNew, setOpenNew] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<string>("__keep__");
+  const [bulkFulfillment, setBulkFulfillment] = useState<string>("__keep__");
+  const [bulkPayment, setBulkPayment] = useState<string>("__keep__");
+
+  const toggleOne = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const clearSelection = () => setSelected(new Set());
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders"],
