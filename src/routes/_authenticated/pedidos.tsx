@@ -360,7 +360,7 @@ function PedidosPage() {
       if (bulkFulfillment !== "__keep__") patch.fulfillment_status = bulkFulfillment;
       if (bulkPayment !== "__keep__") patch.payment_method = bulkPayment;
       if (Object.keys(patch).length === 0) throw new Error("Nada para alterar");
-      const { error } = await supabase.from("orders").update(patch).in("id", ids);
+      const { error } = await supabase.from("orders").update(patch as never).in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
