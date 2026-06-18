@@ -153,7 +153,7 @@ function NavList({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
-function Header({ onMenuClick }: { onMenuClick: () => void }) {
+function Header({ onMenuClick, overrideLogo }: { onMenuClick: () => void; overrideLogo?: string | null }) {
   const navigate = useNavigate();
   const { data: profile } = useProfile();
 
@@ -172,7 +172,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="lg:hidden">
-        <Logo size={32} />
+        <Logo size={32} overrideUrl={overrideLogo} />
       </div>
       <div className="hidden flex-1 lg:block">
         <h1 className="font-sora text-base font-semibold">{storeName}</h1>
