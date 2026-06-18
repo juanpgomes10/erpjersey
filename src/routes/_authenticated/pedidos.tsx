@@ -532,6 +532,13 @@ function PedidosPage() {
                 <table className="w-full text-sm">
                   <thead className="text-xs uppercase text-muted-foreground">
                     <tr className="border-b border-border">
+                      <th className="px-3 py-2 w-8">
+                        <Checkbox
+                          checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleAll}
+                          aria-label="Selecionar todos"
+                        />
+                      </th>
                       <th className="px-3 py-2 text-left font-medium">Nº</th>
                       <th className="px-3 py-2 text-left font-medium">Cliente</th>
                       <th className="px-3 py-2 text-left font-medium">Produtos</th>
