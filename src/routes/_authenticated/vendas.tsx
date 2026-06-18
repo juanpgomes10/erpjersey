@@ -1178,7 +1178,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       const netValue = Number(net) || paidValue;
       const profit = netValue - itemsCost;
       const createdAtIso = createdAt ? new Date(`${createdAt}T12:00:00`).toISOString() : null;
-      const { status: orderStatus, fulfillment_status } = fulfillmentToOrderStatusEdit(fulfillmentStatus);
+      const { status: orderStatus, fulfillment_status } = fulfillmentToOrderStatusEdit(fulfillmentStatus, paidValue);
 
       const { error } = await supabase
         .from("sales")
