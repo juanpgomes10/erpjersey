@@ -737,6 +737,7 @@ function NewTransactionDialog({
   const [categoryKey, setCategoryKey] = useState<string>("marketing");
   const [categoryCustom, setCategoryCustom] = useState("");
   const [saqueMotivo, setSaqueMotivo] = useState("");
+  const [expenseNature, setExpenseNature] = useState<"variavel" | "fixa">("variavel");
   const [saving, setSaving] = useState(false);
 
   function reset() {
@@ -746,6 +747,7 @@ function NewTransactionDialog({
     setNotes("");
     setCategoryKey("marketing"); setCategoryCustom("");
     setSaqueMotivo("");
+    setExpenseNature("variavel");
   }
 
   function changeKind(k: Kind) {
@@ -778,7 +780,7 @@ function NewTransactionDialog({
       txType = kind === "despesa" ? "saida" : "entrada";
       dbCategory = cat.db;
       finalDescription = `[${label}] ${description.trim()}`;
-      recurring = false;
+      recurring = kind === "despesa" && expenseNature === "fixa";
     }
 
     const createdAt = new Date(`${date}T12:00:00`).toISOString();
@@ -907,6 +909,35 @@ function NewTransactionDialog({
                   />
                 )}
               </div>
+
+              {kind === "despesa" && (
+                <div>
+                  <Label className="mb-2 block text-xs">Tipo de despesa</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={expenseNature === "variavel" ? "default" : "outline"}
+                      onClick={() => setExpenseNature("variavel")}
+                      size="sm"
+                    >
+                      Variável
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={expenseNature === "fixa" ? "default" : "outline"}
+                      onClick={() => setExpenseNature("fixa")}
+                      size="sm"
+                    >
+                      Fixa (recorrente)
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {expenseNature === "fixa"
+                      ? "Será contabilizada como despesa fixa mensal."
+                      : "Despesa pontual / variável do período."}
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
