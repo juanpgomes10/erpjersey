@@ -253,7 +253,7 @@ function FinanceiroPage() {
 
 
 
-  // Série temporal: entradas vs saídas por dia
+  // Série temporal: receitas (pedidos + entradas manuais) vs despesas (custo pedidos + frete + saídas manuais)
   const seriesDaily = useMemo(() => {
     const map = new Map<string, { date: string; entradas: number; saidas: number }>();
     const days = Number(period);
@@ -271,6 +271,30 @@ function FinanceiroPage() {
         else row.saidas += Number(t.value);
       }
     });
+    (orders ?? []).forEach((o: any) => {
+      if (o.status === "cancelado") return;
+      const key = (o.created_at as string).slice(0, 10);
+      const row = map.get(key);
+      if (!row) return;
+      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
+      const receita = sale && sale.net_value != null
+        ? Number(sale.net_value)
+        : Number(o.total_value ?? 0) - Number(o.discount ?? 0);
+      let custoItens = 0;
+      const saleItems: any[] | undefined = sale?.sale_items;
+      if (saleItems && saleItems.length > 0) {
+        saleItems.forEach((it) => {
+          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
+        });
+      } else {
+        (o.order_items ?? []).forEach((it: any) => {
+          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
+        });
+      }
+      row.entradas += receita;
+      row.saidas += custoItens + Number(o.shipping_cost ?? 0);
+    });
+
     return Array.from(map.values()).map((r) => ({
       ...r,
       label: new Date(r.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
