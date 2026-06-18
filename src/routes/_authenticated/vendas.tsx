@@ -1036,9 +1036,14 @@ type SaleRow = {
   created_at?: string | null;
 };
 
-function fulfillmentToOrderStatusEdit(v: string): { status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"; fulfillment_status: string | null } {
+function fulfillmentToOrderStatusEdit(
+  v: string,
+  paidValue: number = 0,
+): { status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"; fulfillment_status: string | null } {
+  // Se já houve pagamento (>0), nunca marcar como "pendente".
+  const aguardando: "pendente" | "pago" = paidValue > 0 ? "pago" : "pendente";
   const map: Record<string, "pendente" | "pago" | "enviado" | "entregue" | "cancelado"> = {
-    aguardando_fornecedor: "pendente",
+    aguardando_fornecedor: aguardando,
     aguardando_envio_fornecedor: "pago",
     enviado: "enviado",
     aguardando_retirada: "enviado",
