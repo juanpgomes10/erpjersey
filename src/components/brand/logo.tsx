@@ -1,4 +1,7 @@
-import logoAsset from "@/assets/erpjersey-mark-v2.png.asset.json";
+import markAsset from "@/assets/erpjersey-mark.png.asset.json";
+import wordmarkDarkAsset from "@/assets/erpjersey-wordmark-dark.png.asset.json";
+import wordmarkLightAsset from "@/assets/erpjersey-wordmark-light.png.asset.json";
+import bagAsset from "@/assets/erpjersey-bag.png.asset.json";
 
 interface LogoProps {
   size?: number;
@@ -6,11 +9,11 @@ interface LogoProps {
   className?: string;
 }
 
-/** Símbolo — usado em espaços compactos (favicon, avatares, ícones). */
+/** Símbolo "EJ" — usado em espaços compactos (favicon, avatares, ícones). */
 export function LogoMark({ size = 32, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src={logoAsset.url}
+      src={markAsset.url}
       alt="ERPJersey"
       width={size}
       height={size}
@@ -20,24 +23,36 @@ export function LogoMark({ size = 32, className = "" }: { size?: number; classNa
   );
 }
 
-/** Logo principal. */
+/** Logo completo com marca "EJ" + wordmark "ERP Jersey". Variante automática por tema. */
 export function Logo({ size = 28, withWordmark = true, className = "" }: LogoProps) {
-  const height = withWordmark ? Math.round(size * 1.4) : size;
+  if (!withWordmark) {
+    return <LogoMark size={size} className={className} />;
+  }
+  const height = Math.round(size * 1.4);
+  const baseStyle = { height, width: "auto", objectFit: "contain" as const };
   return (
-    <img
-      src={logoAsset.url}
-      alt="ERPJersey"
-      className={className}
-      style={{ height, width: "auto", objectFit: "contain" }}
-    />
+    <>
+      <img
+        src={wordmarkDarkAsset.url}
+        alt="ERPJersey"
+        className={`hidden dark:block ${className}`}
+        style={baseStyle}
+      />
+      <img
+        src={wordmarkLightAsset.url}
+        alt="ERPJersey"
+        className={`block dark:hidden ${className}`}
+        style={baseStyle}
+      />
+    </>
   );
 }
 
-/** Variante grande — usada em telas de marca/onboarding/auth. */
+/** Variante "sacola" — usada em telas de marca/onboarding/auth como ilustração principal. */
 export function LogoBag({ size = 96, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src={logoAsset.url}
+      src={bagAsset.url}
       alt="ERPJersey"
       width={size}
       height={size}
