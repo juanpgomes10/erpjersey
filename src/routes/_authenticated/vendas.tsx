@@ -74,9 +74,14 @@ const FULFILLMENT_OPTIONS: { value: FulfillmentStatus; label: string }[] = [
 
 // Mapeia o status visual escolhido pelo usuário para o status canônico do pedido,
 // que alimenta os filtros existentes (pendente / pago / enviado / entregue).
-function fulfillmentToOrderStatus(f: FulfillmentStatus): "pendente" | "pago" | "enviado" | "entregue" {
+function fulfillmentToOrderStatus(
+  f: FulfillmentStatus,
+  paidValue: number = 0,
+): "pendente" | "pago" | "enviado" | "entregue" {
+  // Se o cliente já pagou (valor pago > 0), o pedido nunca é "pendente",
+  // mesmo que ainda esteja aguardando o fornecedor.
   switch (f) {
-    case "aguardando_fornecedor": return "pendente";
+    case "aguardando_fornecedor": return paidValue > 0 ? "pago" : "pendente";
     case "aguardando_envio_fornecedor": return "pago";
     case "enviado": return "enviado";
     case "aguardando_retirada": return "enviado";
@@ -482,7 +487,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       // 2. Pedido (sempre criar — toda venda gera um pedido)
       const trackingTrim = trackingCode.trim();
       const supplierTrim = supplierName.trim();
-      const orderStatus = fulfillmentToOrderStatus(fulfillmentStatus as FulfillmentStatus);
+      const orderStatus = fulfillmentToOrderStatus(fulfillmentStatus as FulfillmentStatus, paidValue);
 
       const { data: order, error: orderErr } = await supabase
         .from("orders")
@@ -1031,9 +1036,14 @@ type SaleRow = {
   created_at?: string | null;
 };
 
-function fulfillmentToOrderStatusEdit(v: string): { status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"; fulfillment_status: string | null } {
+function fulfillmentToOrderStatusEdit(
+  v: string,
+  paidValue: number = 0,
+): { status: "pendente" | "pago" | "enviado" | "entregue" | "cancelado"; fulfillment_status: string | null } {
+  // Se já houve pagamento (>0), nunca marcar como "pendente".
+  const aguardando: "pendente" | "pago" = paidValue > 0 ? "pago" : "pendente";
   const map: Record<string, "pendente" | "pago" | "enviado" | "entregue" | "cancelado"> = {
-    aguardando_fornecedor: "pendente",
+    aguardando_fornecedor: aguardando,
     aguardando_envio_fornecedor: "pago",
     enviado: "enviado",
     aguardando_retirada: "enviado",
@@ -1168,7 +1178,7 @@ function EditSaleSheet({ sale, onClose }: { sale: SaleRow | null; onClose: () =>
       const netValue = Number(net) || paidValue;
       const profit = netValue - itemsCost;
       const createdAtIso = createdAt ? new Date(`${createdAt}T12:00:00`).toISOString() : null;
-      const { status: orderStatus, fulfillment_status } = fulfillmentToOrderStatusEdit(fulfillmentStatus);
+      const { status: orderStatus, fulfillment_status } = fulfillmentToOrderStatusEdit(fulfillmentStatus, paidValue);
 
       const { error } = await supabase
         .from("sales")
