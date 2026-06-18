@@ -24,7 +24,18 @@ export function LogoMark({ size = 32, className = "" }: { size?: number; classNa
 }
 
 /** Logo completo com marca "EJ" + wordmark "ERP Jersey". Variante automática por tema. */
-export function Logo({ size = 28, withWordmark = true, className = "" }: LogoProps) {
+export function Logo({ size = 28, withWordmark = true, className = "", overrideUrl }: LogoProps & { overrideUrl?: string | null }) {
+  if (overrideUrl) {
+    const height = Math.round(size * 1.4);
+    return (
+      <img
+        src={overrideUrl}
+        alt="Logo"
+        className={className}
+        style={{ height, width: "auto", maxWidth: 160, objectFit: "contain" }}
+      />
+    );
+  }
   if (!withWordmark) {
     return <LogoMark size={size} className={className} />;
   }
