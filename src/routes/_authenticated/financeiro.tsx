@@ -685,10 +685,17 @@ function FinanceiroPage() {
 }
 
 function KpiCard({
-  icon, label, value, sub, color, loading,
-}: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string; loading?: boolean }) {
+  icon, label, value, sub, color, loading, onClick,
+}: { icon: React.ReactNode; label: string; value: string; sub?: string; color: string; loading?: boolean; onClick?: () => void }) {
+  const clickable = !!onClick && !loading;
   return (
-    <Card>
+    <Card
+      onClick={clickable ? onClick : undefined}
+      className={clickable ? "cursor-pointer transition-colors hover:bg-muted/40" : undefined}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}
+    >
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span style={{ color }}>{icon}</span>
