@@ -328,6 +328,102 @@ function PedidosPage() {
 
   const detail = useMemo(() => (orders ?? []).find((o) => o.id === detailId) ?? null, [orders, detailId]);
 
+  const filteredIds = useMemo(() => filtered.map((o) => o.id), [filtered]);
+  const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
+  const someSelected = filteredIds.some((id) => selected.has(id));
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (allSelected) {
+        const n = new Set(prev);
+        filteredIds.forEach((id) => n.delete(id));
+        return n;
+      }
+      const n = new Set(prev);
+      filteredIds.forEach((id) => n.add(id));
+      return n;
+    });
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["orders"] });
+    qc.invalidateQueries({ queryKey: ["sales"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["fin-tx"] });
+    qc.invalidateQueries({ queryKey: ["fin-orders"] });
+  };
+
+  const bulkUpdate = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) return;
+      const patch: Record<string, string> = {};
+      if (bulkStatus !== "__keep__") patch.status = bulkStatus;
+      if (bulkFulfillment !== "__keep__") patch.fulfillment_status = bulkFulfillment;
+      if (bulkPayment !== "__keep__") patch.payment_method = bulkPayment;
+      if (Object.keys(patch).length === 0) throw new Error("Nada para alterar");
+      const { error } = await supabase.from("orders").update(patch).in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pedidos atualizados");
+      invalidateAll();
+      setBulkEditOpen(false);
+      setBulkStatus("__keep__");
+      setBulkFulfillment("__keep__");
+      setBulkPayment("__keep__");
+      clearSelection();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao atualizar"),
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) return;
+      const { error } = await supabase.from("orders").delete().in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pedidos excluídos");
+      invalidateAll();
+      setBulkDeleteOpen(false);
+      clearSelection();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erro ao excluir"),
+  });
+
+  const exportSelected = () => {
+    const ids = selected;
+    const rows = (orders ?? [])
+      .filter((o) => ids.has(o.id))
+      .map((o) => {
+        const total = Number(o.total_value) - Number(o.discount || 0);
+        return {
+          "Nº": orderNum(o.order_number),
+          Cliente: o.customer?.name ?? "",
+          Telefone: o.customer?.phone ?? "",
+          Produtos: o.items
+            .map((i) => `${i.product?.name ?? i.product_name ?? "Produto"}${i.size ? ` (${i.size})` : ""} x${i.quantity}`)
+            .join(", "),
+          Total: total.toFixed(2),
+          "Forma de pagamento": paymentMethodLabel[o.payment_method] ?? o.payment_method,
+          Status: STATUS_LABEL[financeStatusOf(o)],
+          Logística: (() => {
+            const l = logisticsStatusOf(o);
+            return l ? STATUS_LABEL[l] : "";
+          })(),
+          Data: fmtDateTime(o.created_at),
+          Fornecedor: o.supplier_name ?? "",
+          Rastreio: o.tracking_code ?? "",
+        };
+      });
+    if (rows.length === 0) {
+      toast.error("Nenhum pedido selecionado");
+      return;
+    }
+    downloadXlsx(`pedidos-${todayStr()}.xlsx`, { Pedidos: rows });
+    toast.success(`${rows.length} pedido(s) exportado(s)`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
