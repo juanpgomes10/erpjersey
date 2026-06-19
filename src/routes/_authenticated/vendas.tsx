@@ -280,6 +280,7 @@ type CartItem = {
   quantity: number;
   unitPrice: number;
   unitCost: number;
+  imageUrl: string | null;
   stockBySize: Record<string, number>;
 };
 
