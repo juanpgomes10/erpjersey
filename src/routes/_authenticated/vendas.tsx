@@ -433,6 +433,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         quantity: 1,
         unitPrice: 0,
         unitCost: cost,
+        imageUrl: cfgImageUrl,
         stockBySize: {},
       },
     ]);
