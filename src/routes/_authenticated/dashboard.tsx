@@ -238,13 +238,15 @@ function DashboardPage() {
         value: v,
       }));
 
-      const topMap = new Map<string, { qty: number; total: number }>();
+      const topMap = new Map<string, { qty: number; total: number; image: string | null }>();
       orders.forEach((o) => {
         (o.order_items ?? []).forEach((it) => {
-          const name = it.product?.name ?? "—";
-          const c = topMap.get(name) ?? { qty: 0, total: 0 };
+          const name = it.product?.name ?? it.product_name ?? "—";
+          const image = it.image_url ?? it.product?.image_url ?? null;
+          const c = topMap.get(name) ?? { qty: 0, total: 0, image: null };
           c.qty += Number(it.quantity);
           c.total += Number(it.unit_price) * Number(it.quantity);
+          if (!c.image && image) c.image = image;
           topMap.set(name, c);
         });
       });
