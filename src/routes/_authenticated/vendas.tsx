@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { PhotoUploader } from "@/components/product/photo-uploader";
 import { buildProductLabel } from "@/lib/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -279,6 +280,7 @@ type CartItem = {
   quantity: number;
   unitPrice: number;
   unitCost: number;
+  imageUrl: string | null;
   stockBySize: Record<string, number>;
 };
 
@@ -297,6 +299,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   // Configurador do item (cascata Time → Temporada → Produto → Modelo → Gênero → Tamanho)
   const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgCostStr, setCfgCostStr] = useState("");
+  const [cfgImageUrl, setCfgImageUrl] = useState<string | null>(null);
+
   
   const [cfgPersonalize, setCfgPersonalize] = useState(false);
   const [cfgPersonName, setCfgPersonName] = useState("");
@@ -334,7 +338,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   function resetConfigurator() {
     setCascade(emptyCascadeValue());
     setCfgCostStr("");
-    
+    setCfgImageUrl(null);
     setCfgPersonalize(false);
     setCfgPersonName("");
     setCfgPersonNumber("");
@@ -429,6 +433,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         quantity: 1,
         unitPrice: 0,
         unitCost: cost,
+        imageUrl: cfgImageUrl,
         stockBySize: {},
       },
     ]);
@@ -517,6 +522,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           size: c.size,
           quantity: c.quantity,
           unit_price: c.unitPrice,
+          image_url: c.imageUrl,
         })),
       );
       if (orderItemsErr) throw orderItemsErr;
@@ -557,6 +563,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           quantity: c.quantity,
           unit_price: c.unitPrice,
           unit_cost: c.unitCost,
+          image_url: c.imageUrl,
         })),
       );
       if (itemsErr) throw itemsErr;
@@ -738,6 +745,14 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 <p className="mt-1 text-xs text-muted-foreground">Quanto custou para você. O valor pago pelo cliente é informado abaixo em "Dados de faturamento".</p>
               </div>
 
+              <PhotoUploader
+                value={cfgImageUrl}
+                onChange={setCfgImageUrl}
+                folder="vendas"
+                label="Foto do produto (opcional)"
+                hint="Anexe uma foto da camisa para identificação no pedido."
+              />
+
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="outline" onClick={resetConfigurator}>Limpar</Button>
                 <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
@@ -755,9 +770,16 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 </div>
                 {cart.map((c, i) => (
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
-                    <div className="col-span-6 min-w-0">
-                      <p className="text-sm font-medium truncate">{c.productName}</p>
-                      <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
+                    <div className="col-span-6 flex min-w-0 items-center gap-2">
+                      {c.imageUrl ? (
+                        <img src={c.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded border border-border bg-muted/40" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{c.productName}</p>
+                        <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
+                      </div>
                     </div>
                     <div className="col-span-2">
                       <Input

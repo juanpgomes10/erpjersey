@@ -22,6 +22,7 @@ import {
   PRODUCT_TYPES,
   MODELS,
   GENDERS,
+  SEASONS,
   searchTeams,
   teamLabel,
   type Gender,
@@ -65,11 +66,15 @@ export function ProductCascade({ value, onChange, hideSize }: ProductCascadeProp
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label>Temporada</Label>
-          <Input
-            value={value.season}
-            onChange={(e) => set("season", e.target.value)}
-            placeholder="Ex.: 2025/2026"
-          />
+          <Select value={value.season || "_none"} onValueChange={(v) => set("season", v === "_none" ? "" : v)}>
+            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="_none">Sem temporada</SelectItem>
+              {SEASONS.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label>Produto*</Label>

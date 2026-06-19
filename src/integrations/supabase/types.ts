@@ -389,6 +389,7 @@ export type Database = {
       order_items: {
         Row: {
           id: string
+          image_url: string | null
           order_id: string
           product_id: string | null
           product_name: string | null
@@ -398,6 +399,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          image_url?: string | null
           order_id: string
           product_id?: string | null
           product_name?: string | null
@@ -407,6 +409,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          image_url?: string | null
           order_id?: string
           product_id?: string | null
           product_name?: string | null
@@ -668,6 +671,7 @@ export type Database = {
       sale_items: {
         Row: {
           id: string
+          image_url: string | null
           product_id: string | null
           product_name_snapshot: string | null
           quantity: number
@@ -678,6 +682,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          image_url?: string | null
           product_id?: string | null
           product_name_snapshot?: string | null
           quantity: number
@@ -688,6 +693,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          image_url?: string | null
           product_id?: string | null
           product_name_snapshot?: string | null
           quantity?: number

@@ -118,7 +118,7 @@ function DashboardPage() {
           supabase
             .from("orders")
             .select(
-              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product:products(name, cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
+              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product_name, image_url, product:products(name, image_url, cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
@@ -157,7 +157,9 @@ function DashboardPage() {
         order_items: Array<{
           quantity: number;
           unit_price: number | string;
-          product: { name: string; cost_price: number | string | null } | null;
+          product_name: string | null;
+          image_url: string | null;
+          product: { name: string; image_url: string | null; cost_price: number | string | null } | null;
         }> | null;
         sale: { net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null } | Array<{ net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null }> | null;
       }>;
@@ -236,13 +238,15 @@ function DashboardPage() {
         value: v,
       }));
 
-      const topMap = new Map<string, { qty: number; total: number }>();
+      const topMap = new Map<string, { qty: number; total: number; image: string | null }>();
       orders.forEach((o) => {
         (o.order_items ?? []).forEach((it) => {
-          const name = it.product?.name ?? "—";
-          const c = topMap.get(name) ?? { qty: 0, total: 0 };
+          const name = it.product?.name ?? it.product_name ?? "—";
+          const image = it.image_url ?? it.product?.image_url ?? null;
+          const c = topMap.get(name) ?? { qty: 0, total: 0, image: null };
           c.qty += Number(it.quantity);
           c.total += Number(it.unit_price) * Number(it.quantity);
+          if (!c.image && image) c.image = image;
           topMap.set(name, c);
         });
       });
@@ -503,7 +507,7 @@ function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top 5 produtos</CardTitle>
+            <CardTitle className="text-base">Top 5 produtos mais vendidos</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -514,13 +518,21 @@ function DashboardPage() {
               <ul className="space-y-3 text-sm">
                 {data!.top5.map((t, i) => (
                   <li key={t.name} className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded bg-[color:#1E293B] text-xs text-muted-foreground">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
                         {i + 1}
                       </span>
+                      {t.image ? (
+                        <img src={t.image} alt="" className="h-10 w-10 shrink-0 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded border border-border bg-muted/40" />
+                      )}
                       <span className="truncate">{t.name}</span>
                     </div>
-                    <span className="tabular text-muted-foreground">{t.qty}x</span>
+                    <div className="text-right">
+                      <div className="tabular text-sm">{t.qty}x</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtBRL(t.total)}</div>
+                    </div>
                   </li>
                 ))}
               </ul>
