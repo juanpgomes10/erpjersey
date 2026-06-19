@@ -299,6 +299,8 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   // Configurador do item (cascata Time → Temporada → Produto → Modelo → Gênero → Tamanho)
   const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgCostStr, setCfgCostStr] = useState("");
+  const [cfgImageUrl, setCfgImageUrl] = useState<string | null>(null);
+
   
   const [cfgPersonalize, setCfgPersonalize] = useState(false);
   const [cfgPersonName, setCfgPersonName] = useState("");
