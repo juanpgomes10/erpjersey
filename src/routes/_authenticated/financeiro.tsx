@@ -309,7 +309,7 @@ function FinanceiroPage() {
           icon={<TrendingUp className="h-4 w-4" />}
           label="Receitas"
           value={fmtBRL(totalReceitas)}
-          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
+          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(lucroPedidos.receitasManuais)}`}
           color="#16A34A"
           loading={loadingTx}
           onClick={() => {
