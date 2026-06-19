@@ -385,6 +385,7 @@ function DashboardPage() {
         chartDays,
         chartMethods,
         top5,
+        top5Teams,
         lastSales: (lastOrders.data ?? []) as Array<{
           id: string;
           order_number: number | null;
