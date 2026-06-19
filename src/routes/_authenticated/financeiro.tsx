@@ -175,76 +175,44 @@ function FinanceiroPage() {
     },
   });
 
-  // Pedidos no período (para receita / custo / lucro / frete) — fonte única alinhada ao Dashboard
-  const { data: orders } = useQuery({
-    queryKey: ["fin-orders", storeId, period],
-    enabled: !!storeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id, status, total_value, discount, shipping_cost, created_at, paid_at, order_items(quantity, unit_price, product_id, products(cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
-        )
-        .eq("store_id", storeId!)
-        .gte("created_at", sinceISO);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  // Cálculos
+  // Cálculos — fonte única é a tabela `transactions`.
+  // Toda venda/pedido pago gera automaticamente os lançamentos via triggers:
+  //   - 'order_revenue'  (entrada — receita líquida do pedido)
+  //   - 'order_cost'     (saída — mercadoria do fornecedor)
+  //   - 'order_shipping' (saída — frete do pedido)
   const entradas = (txs ?? []).filter((t) => t.type === "entrada").reduce((s, t) => s + Number(t.value), 0);
   const saidas = (txs ?? []).filter((t) => t.type === "saida").reduce((s, t) => s + Number(t.value), 0);
   const despesasVariaveis = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring).reduce((s, t) => s + Number(t.value), 0);
   const saquesTotal = (txs ?? [])
     .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
     .reduce((s, t) => s + Number(t.value), 0);
-  
+
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
 
-  // Receita / custo / frete / lucro a partir dos pedidos (fonte única)
+  // Receita / custo / frete derivados das transações automáticas dos pedidos
   const lucroPedidos = useMemo(() => {
-    let receita = 0;
-    let custo = 0;
-    let frete = 0;
-    (orders ?? []).forEach((o: any) => {
-      if (o.status === "cancelado") return;
-      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
-      const rawReceita = Number(o.total_value ?? 0) - Number(o.discount ?? 0);
-      const receitaRow = sale && sale.net_value != null ? Number(sale.net_value) : rawReceita;
-      receita += receitaRow;
-
-      let custoItens = 0;
-      const saleItems: any[] | undefined = sale?.sale_items;
-      if (saleItems && saleItems.length > 0) {
-        saleItems.forEach((it) => {
-          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
-        });
-      } else {
-        (o.order_items ?? []).forEach((it: any) => {
-          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
-        });
-      }
-      custo += custoItens;
-      frete += Number(o.shipping_cost ?? 0);
-    });
-    return { receita, custo, frete, lucro: receita - custo - frete };
-  }, [orders]);
+    const sumBySource = (src: string) =>
+      (txs ?? [])
+        .filter((t) => (t as unknown as { source?: string | null }).source === src)
+        .reduce((s, t) => s + Number(t.value), 0);
+    const receita = sumBySource("order_revenue");
+    const custo = sumBySource("order_cost");
+    const frete = sumBySource("order_shipping");
+    const receitasManuais = entradas - receita;
+    const despesasManuais = saidas - custo - frete;
+    return { receita, custo, frete, lucro: receita - custo - frete, receitasManuais, despesasManuais };
+  }, [txs, entradas, saidas]);
 
   const freteCost = lucroPedidos.frete;
 
-  // ====== Totais consolidados (alinhados ao Dashboard) ======
-  // Receita do período = faturamento dos pedidos (igual ao Dashboard) + entradas manuais
-  // Despesas do período = custo dos pedidos + frete dos pedidos + saídas manuais
-  const totalReceitas = lucroPedidos.receita + entradas;
-  const totalDespesas = lucroPedidos.custo + lucroPedidos.frete + saidas;
+  // ====== Totais consolidados ======
+  // Fonte única: tabela transactions. Receitas = todas entradas, Despesas = todas saídas.
+  const totalReceitas = entradas;
+  const totalDespesas = saidas;
   const saldoConsolidado = totalReceitas - totalDespesas;
 
-  // Custos futuros: despesas não pagas no período + despesas fixas mensais.
-  // (custo de pedidos pendentes já está contabilizado em totalDespesas, então
-  // NÃO entra aqui para evitar duplicidade.)
   const custosFuturos = useMemo(() => {
     const despesasAPagar = (txs ?? [])
       .filter((t) => t.type === "saida" && !t.paid)
@@ -279,36 +247,13 @@ function FinanceiroPage() {
         else row.saidas += Number(t.value);
       }
     });
-    (orders ?? []).forEach((o: any) => {
-      if (o.status === "cancelado") return;
-      const key = (o.created_at as string).slice(0, 10);
-      const row = map.get(key);
-      if (!row) return;
-      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
-      const receita = sale && sale.net_value != null
-        ? Number(sale.net_value)
-        : Number(o.total_value ?? 0) - Number(o.discount ?? 0);
-      let custoItens = 0;
-      const saleItems: any[] | undefined = sale?.sale_items;
-      if (saleItems && saleItems.length > 0) {
-        saleItems.forEach((it) => {
-          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
-        });
-      } else {
-        (o.order_items ?? []).forEach((it: any) => {
-          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
-        });
-      }
-      row.entradas += receita;
-      row.saidas += custoItens + Number(o.shipping_cost ?? 0);
-    });
 
     return Array.from(map.values()).map((r) => ({
       ...r,
       label: new Date(r.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
       lucro: r.entradas - r.saidas,
     }));
-  }, [txs, orders, period]);
+  }, [txs, period]);
 
   // Despesas por categoria
   const byCategory = useMemo(() => {
@@ -364,14 +309,14 @@ function FinanceiroPage() {
           icon={<TrendingUp className="h-4 w-4" />}
           label="Receitas"
           value={fmtBRL(totalReceitas)}
-          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
+          sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(lucroPedidos.receitasManuais)}`}
           color="#16A34A"
-          loading={loadingTx || !orders}
+          loading={loadingTx}
           onClick={() => {
             const items = (txs ?? []).filter((t) => t.type === "entrada");
             setDetail({
               title: "Receitas do período",
-              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(entradas)}`,
+              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(lucroPedidos.receitasManuais)}`,
               items,
               total: totalReceitas,
               link: { to: "/vendas", label: "Ver vendas" },
@@ -383,14 +328,14 @@ function FinanceiroPage() {
           icon={<TrendingDown className="h-4 w-4" />}
           label="Despesas"
           value={fmtBRL(totalDespesas)}
-          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
+          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(lucroPedidos.despesasManuais)}`}
           color="#DC2626"
-          loading={loadingTx || !orders}
+          loading={loadingTx}
           onClick={() => {
             const items = (txs ?? []).filter((t) => t.type === "saida");
             setDetail({
               title: "Despesas do período",
-              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(saidas)}`,
+              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(lucroPedidos.despesasManuais)}`,
               items,
               total: totalDespesas,
               link: { to: "/pedidos", label: "Ver pedidos" },
@@ -404,7 +349,7 @@ function FinanceiroPage() {
           value={fmtBRL(saldoConsolidado)}
           sub="Receitas − Despesas"
           color={saldoConsolidado >= 0 ? "#2563EB" : "#DC2626"}
-          loading={loadingTx || !orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
@@ -412,7 +357,7 @@ function FinanceiroPage() {
           value={fmtBRL(saldoProjetado)}
           sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
           color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
-          loading={loadingTx || !orders || !recurring}
+          loading={loadingTx || !recurring}
         />
 
         <KpiCard
@@ -421,7 +366,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroPedidos.lucro)}
           sub={`Receita ${fmtBRL(lucroPedidos.receita)} • Custo ${fmtBRL(lucroPedidos.custo)}`}
           color="#16A34A"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
@@ -429,7 +374,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroPedidos.custo)}
           sub="Custo de mercadoria vendida no período"
           color="#DC2626"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -437,7 +382,7 @@ function FinanceiroPage() {
           value={fmtBRL(freteCost)}
           sub="Soma do custo de frete informado em cada pedido"
           color="#DC2626"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -509,7 +454,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroLiquido)}
           sub="Saldo do período − fixas mensais"
           color={lucroLiquido >= 0 ? "#16A34A" : "#DC2626"}
-          loading={!orders || !recurring || loadingTx}
+          loading={loadingTx || !recurring}
         />
       </div>
 
