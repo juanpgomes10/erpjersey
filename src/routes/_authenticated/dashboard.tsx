@@ -255,6 +255,30 @@ function DashboardPage() {
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
 
+      // ===== Top 5 times/seleções =====
+      const teamLabelToValue = new Map(TEAMS.map((t) => [t.label.toLowerCase(), t.value]));
+      const teamMap = new Map<string, { label: string; qty: number; total: number }>();
+      orders.forEach((o) => {
+        (o.order_items ?? []).forEach((it) => {
+          let teamValue: string | null = it.product?.team ?? null;
+          if (!teamValue) {
+            const name = it.product?.name ?? it.product_name ?? "";
+            const first = name.split(" · ")[0]?.trim().toLowerCase();
+            if (first && teamLabelToValue.has(first)) teamValue = teamLabelToValue.get(first)!;
+            else if (first) teamValue = first;
+          }
+          if (!teamValue) return;
+          const label = teamLabel(teamValue) || teamValue;
+          const c = teamMap.get(teamValue) ?? { label, qty: 0, total: 0 };
+          c.qty += Number(it.quantity);
+          c.total += Number(it.unit_price) * Number(it.quantity);
+          teamMap.set(teamValue, c);
+        });
+      });
+      const top5Teams = Array.from(teamMap.values())
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
+
       // ===== Importações =====
       const importsList = importsAll.data ?? [];
       const ACTIVE_STATUSES = ["comprado", "enviado", "em_transito", "chegou_brasil", "aguardando_taxa", "saiu_entrega"];
