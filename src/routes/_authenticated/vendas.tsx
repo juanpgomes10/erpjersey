@@ -924,16 +924,27 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             <h3 className="font-sora text-sm font-semibold mb-2">5. Dados de faturamento</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label>Valor pago pelo cliente</Label>
+                <Label>Valor pago pelo cliente (R$)*</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={paidValueStr}
                   onChange={(e) => setPaidValueStr(e.target.value)}
-                  placeholder={fmtBRL(totalCalc)}
+                  placeholder="0,00"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Soma do carrinho: <span className="tabular">{fmtBRL(totalCalc)}</span></p>
+                <p className="mt-1 text-xs text-muted-foreground">Faturamento bruto da venda.</p>
               </div>
+              <div>
+                <Label>Custo total dos produtos (R$)</Label>
+                <Input
+                  type="text"
+                  value={fmtBRL(itemsCost)}
+                  readOnly
+                  className="bg-muted/40"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Soma automática dos custos do carrinho. Vai para "Custo dos pedidos" no Financeiro.</p>
+              </div>
+
               <div>
                 <Label>Valor líquido recebido</Label>
                 <Input
