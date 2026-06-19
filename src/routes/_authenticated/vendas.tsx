@@ -770,9 +770,16 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 </div>
                 {cart.map((c, i) => (
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
-                    <div className="col-span-6 min-w-0">
-                      <p className="text-sm font-medium truncate">{c.productName}</p>
-                      <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
+                    <div className="col-span-6 flex min-w-0 items-center gap-2">
+                      {c.imageUrl ? (
+                        <img src={c.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded border border-border bg-muted/40" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{c.productName}</p>
+                        <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
+                      </div>
                     </div>
                     <div className="col-span-2">
                       <Input
