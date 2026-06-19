@@ -157,7 +157,9 @@ function DashboardPage() {
         order_items: Array<{
           quantity: number;
           unit_price: number | string;
-          product: { name: string; cost_price: number | string | null } | null;
+          product_name: string | null;
+          image_url: string | null;
+          product: { name: string; image_url: string | null; cost_price: number | string | null } | null;
         }> | null;
         sale: { net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null } | Array<{ net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null }> | null;
       }>;
