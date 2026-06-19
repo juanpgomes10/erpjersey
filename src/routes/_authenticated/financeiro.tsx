@@ -328,7 +328,7 @@ function FinanceiroPage() {
           icon={<TrendingDown className="h-4 w-4" />}
           label="Despesas"
           value={fmtBRL(totalDespesas)}
-          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
+          sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(lucroPedidos.despesasManuais)}`}
           color="#DC2626"
           loading={loadingTx}
           onClick={() => {
