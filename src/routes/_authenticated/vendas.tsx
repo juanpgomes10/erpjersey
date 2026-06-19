@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { detectCarrier } from "@/lib/carrier";
 import { fmtBRL, fmtDateTime, paymentMethodLabel } from "@/lib/format";
 import { ProductCascade, emptyCascadeValue, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { PhotoUploader } from "@/components/product/photo-uploader";
 import { buildProductLabel } from "@/lib/teams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
