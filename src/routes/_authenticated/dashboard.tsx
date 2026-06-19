@@ -568,6 +568,37 @@ function DashboardPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Top 5 times/seleções mais vendidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : (data?.top5Teams?.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem dados no período.</p>
+            ) : (
+              <ul className="space-y-3 text-sm">
+                {data!.top5Teams.map((t, i) => (
+                  <li key={t.label} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                        {i + 1}
+                      </span>
+                      <span className="truncate font-medium">{t.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="tabular text-sm">{t.qty}x</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtBRL(t.total)}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Últimas vendas</CardTitle>
           </CardHeader>
           <CardContent>
