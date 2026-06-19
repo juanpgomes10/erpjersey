@@ -335,7 +335,7 @@ function FinanceiroPage() {
             const items = (txs ?? []).filter((t) => t.type === "saida");
             setDetail({
               title: "Despesas do período",
-              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(saidas)}`,
+              description: `Custo pedidos: ${fmtBRL(lucroPedidos.custo)} • Frete: ${fmtBRL(lucroPedidos.frete)} • Lançamentos manuais: ${fmtBRL(lucroPedidos.despesasManuais)}`,
               items,
               total: totalDespesas,
               link: { to: "/pedidos", label: "Ver pedidos" },
