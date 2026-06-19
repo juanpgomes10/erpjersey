@@ -427,7 +427,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         size: cascade.size as SizeOpt,
         gender: cascade.gender,
         quantity: 1,
-        unitPrice: price,
+        unitPrice: 0,
         unitCost: cost,
         stockBySize: {},
       },
