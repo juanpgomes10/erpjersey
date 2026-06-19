@@ -748,20 +748,18 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             {cart.length > 0 && (
               <div className="mt-3 rounded-md border border-border">
                 <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase text-muted-foreground">
-                  <div className="col-span-5">Produto</div>
-                  <div className="col-span-1 text-center">Qtd</div>
-                  <div className="col-span-2 text-right">Preço un.</div>
-                  <div className="col-span-2 text-right">Custo un.</div>
-                  <div className="col-span-1 text-right">Total</div>
+                  <div className="col-span-6">Produto</div>
+                  <div className="col-span-2 text-center">Qtd</div>
+                  <div className="col-span-3 text-right">Custo un.</div>
                   <div className="col-span-1"></div>
                 </div>
                 {cart.map((c, i) => (
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
-                    <div className="col-span-5 min-w-0">
+                    <div className="col-span-6 min-w-0">
                       <p className="text-sm font-medium truncate">{c.productName}</p>
                       <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <Input
                         type="number"
                         min={1}
@@ -773,19 +771,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                         className="h-8 text-center"
                       />
                     </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={c.unitPrice}
-                        onChange={(e) => {
-                          const v = Number(e.target.value) || 0;
-                          setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, unitPrice: v } : x));
-                        }}
-                        className="h-8 text-right tabular"
-                      />
-                    </div>
-                    <div className="col-span-2">
+                    <div className="col-span-3">
                       <Input
                         type="number"
                         step="0.01"
@@ -797,7 +783,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                         className="h-8 text-right tabular"
                       />
                     </div>
-                    <div className="col-span-1 text-right tabular text-sm font-medium">{fmtBRL(c.unitPrice * c.quantity)}</div>
                     <div className="col-span-1 text-right">
                       <Button variant="ghost" size="icon" onClick={() => setCart((p) => p.filter((_, idx) => idx !== i))}>
                         <X className="h-4 w-4" />
