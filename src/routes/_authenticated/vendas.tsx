@@ -745,6 +745,14 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 <p className="mt-1 text-xs text-muted-foreground">Quanto custou para você. O valor pago pelo cliente é informado abaixo em "Dados de faturamento".</p>
               </div>
 
+              <PhotoUploader
+                value={cfgImageUrl}
+                onChange={setCfgImageUrl}
+                folder="vendas"
+                label="Foto do produto (opcional)"
+                hint="Anexe uma foto da camisa para identificação no pedido."
+              />
+
               <div className="flex justify-end gap-2 pt-1">
                 <Button type="button" variant="outline" onClick={resetConfigurator}>Limpar</Button>
                 <Button type="button" onClick={confirmAddItem}>Adicionar à venda</Button>
