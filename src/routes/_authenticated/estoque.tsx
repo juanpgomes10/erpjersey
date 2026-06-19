@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProductCascade, type ProductCascadeValue } from "@/components/product/product-cascade";
+import { PhotoUploader } from "@/components/product/photo-uploader";
 import {
   SIZES_ADULT,
   SIZES_KIDS,
