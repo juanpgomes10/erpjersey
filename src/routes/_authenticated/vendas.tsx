@@ -401,9 +401,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       toast.error("Informe qual edição especial"); return;
     }
     if (!cascade.size) { toast.error("Selecione o tamanho"); return; }
-    const price = Number(cfgPriceStr) || 0;
     const cost = Number(cfgCostStr) || 0;
-    if (price <= 0) { toast.error("Informe o valor pago pelo cliente"); return; }
 
     const baseLabel = buildProductLabel({
       team: cascade.team,
