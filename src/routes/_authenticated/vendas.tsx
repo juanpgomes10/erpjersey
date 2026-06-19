@@ -338,7 +338,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   function resetConfigurator() {
     setCascade(emptyCascadeValue());
     setCfgCostStr("");
-    
+    setCfgImageUrl(null);
     setCfgPersonalize(false);
     setCfgPersonName("");
     setCfgPersonNumber("");
