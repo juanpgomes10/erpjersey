@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, paymentMethodLabel } from "@/lib/format";
+import { TEAMS, teamLabel } from "@/lib/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
