@@ -175,76 +175,44 @@ function FinanceiroPage() {
     },
   });
 
-  // Pedidos no período (para receita / custo / lucro / frete) — fonte única alinhada ao Dashboard
-  const { data: orders } = useQuery({
-    queryKey: ["fin-orders", storeId, period],
-    enabled: !!storeId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id, status, total_value, discount, shipping_cost, created_at, paid_at, order_items(quantity, unit_price, product_id, products(cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
-        )
-        .eq("store_id", storeId!)
-        .gte("created_at", sinceISO);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  // Cálculos
+  // Cálculos — fonte única é a tabela `transactions`.
+  // Toda venda/pedido pago gera automaticamente os lançamentos via triggers:
+  //   - 'order_revenue'  (entrada — receita líquida do pedido)
+  //   - 'order_cost'     (saída — mercadoria do fornecedor)
+  //   - 'order_shipping' (saída — frete do pedido)
   const entradas = (txs ?? []).filter((t) => t.type === "entrada").reduce((s, t) => s + Number(t.value), 0);
   const saidas = (txs ?? []).filter((t) => t.type === "saida").reduce((s, t) => s + Number(t.value), 0);
   const despesasVariaveis = (txs ?? []).filter((t) => t.type === "saida" && !t.recurring).reduce((s, t) => s + Number(t.value), 0);
   const saquesTotal = (txs ?? [])
     .filter((t) => t.type === "saida" && t.description.startsWith("Saque do proprietário"))
     .reduce((s, t) => s + Number(t.value), 0);
-  
+
   const recurringMonthly = (recurring ?? [])
     .filter((t) => t.type === "saida")
     .reduce((s, t) => s + Number(t.value), 0);
 
-  // Receita / custo / frete / lucro a partir dos pedidos (fonte única)
+  // Receita / custo / frete derivados das transações automáticas dos pedidos
   const lucroPedidos = useMemo(() => {
-    let receita = 0;
-    let custo = 0;
-    let frete = 0;
-    (orders ?? []).forEach((o: any) => {
-      if (o.status === "cancelado") return;
-      const sale = Array.isArray(o.sale) ? o.sale[0] : o.sale;
-      const rawReceita = Number(o.total_value ?? 0) - Number(o.discount ?? 0);
-      const receitaRow = sale && sale.net_value != null ? Number(sale.net_value) : rawReceita;
-      receita += receitaRow;
-
-      let custoItens = 0;
-      const saleItems: any[] | undefined = sale?.sale_items;
-      if (saleItems && saleItems.length > 0) {
-        saleItems.forEach((it) => {
-          custoItens += Number(it.unit_cost ?? 0) * Number(it.quantity ?? 0);
-        });
-      } else {
-        (o.order_items ?? []).forEach((it: any) => {
-          custoItens += Number(it.products?.cost_price ?? 0) * Number(it.quantity ?? 0);
-        });
-      }
-      custo += custoItens;
-      frete += Number(o.shipping_cost ?? 0);
-    });
-    return { receita, custo, frete, lucro: receita - custo - frete };
-  }, [orders]);
+    const sumBySource = (src: string) =>
+      (txs ?? [])
+        .filter((t) => (t as unknown as { source?: string | null }).source === src)
+        .reduce((s, t) => s + Number(t.value), 0);
+    const receita = sumBySource("order_revenue");
+    const custo = sumBySource("order_cost");
+    const frete = sumBySource("order_shipping");
+    const receitasManuais = entradas - receita;
+    const despesasManuais = saidas - custo - frete;
+    return { receita, custo, frete, lucro: receita - custo - frete, receitasManuais, despesasManuais };
+  }, [txs, entradas, saidas]);
 
   const freteCost = lucroPedidos.frete;
 
-  // ====== Totais consolidados (alinhados ao Dashboard) ======
-  // Receita do período = faturamento dos pedidos (igual ao Dashboard) + entradas manuais
-  // Despesas do período = custo dos pedidos + frete dos pedidos + saídas manuais
-  const totalReceitas = lucroPedidos.receita + entradas;
-  const totalDespesas = lucroPedidos.custo + lucroPedidos.frete + saidas;
+  // ====== Totais consolidados ======
+  // Fonte única: tabela transactions. Receitas = todas entradas, Despesas = todas saídas.
+  const totalReceitas = entradas;
+  const totalDespesas = saidas;
   const saldoConsolidado = totalReceitas - totalDespesas;
 
-  // Custos futuros: despesas não pagas no período + despesas fixas mensais.
-  // (custo de pedidos pendentes já está contabilizado em totalDespesas, então
-  // NÃO entra aqui para evitar duplicidade.)
   const custosFuturos = useMemo(() => {
     const despesasAPagar = (txs ?? [])
       .filter((t) => t.type === "saida" && !t.paid)
