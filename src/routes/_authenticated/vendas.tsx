@@ -734,15 +734,10 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Custo aproximado (R$)</Label>
-                  <Input type="number" step="0.01" value={cfgCostStr} onChange={(e) => setCfgCostStr(e.target.value)} placeholder="0,00" />
-                </div>
-                <div>
-                  <Label>Valor pago pelo cliente (R$)*</Label>
-                  <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} placeholder="0,00" />
-                </div>
+              <div>
+                <Label>Custo aproximado do produto (R$)</Label>
+                <Input type="number" step="0.01" value={cfgCostStr} onChange={(e) => setCfgCostStr(e.target.value)} placeholder="0,00" />
+                <p className="mt-1 text-xs text-muted-foreground">Quanto custou para você. O valor pago pelo cliente é informado abaixo em "Dados de faturamento".</p>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
