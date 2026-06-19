@@ -507,7 +507,7 @@ function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top 5 produtos</CardTitle>
+            <CardTitle className="text-base">Top 5 produtos mais vendidos</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -518,13 +518,21 @@ function DashboardPage() {
               <ul className="space-y-3 text-sm">
                 {data!.top5.map((t, i) => (
                   <li key={t.name} className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded bg-[color:#1E293B] text-xs text-muted-foreground">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
                         {i + 1}
                       </span>
+                      {t.image ? (
+                        <img src={t.image} alt="" className="h-10 w-10 shrink-0 rounded object-cover border border-border" />
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded border border-border bg-muted/40" />
+                      )}
                       <span className="truncate">{t.name}</span>
                     </div>
-                    <span className="tabular text-muted-foreground">{t.qty}x</span>
+                    <div className="text-right">
+                      <div className="tabular text-sm">{t.qty}x</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtBRL(t.total)}</div>
+                    </div>
                   </li>
                 ))}
               </ul>
