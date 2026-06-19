@@ -311,7 +311,7 @@ function FinanceiroPage() {
           value={fmtBRL(totalReceitas)}
           sub={`Vendas ${fmtBRL(lucroPedidos.receita)} • Outras entradas ${fmtBRL(entradas)}`}
           color="#16A34A"
-          loading={loadingTx || !orders}
+          loading={loadingTx}
           onClick={() => {
             const items = (txs ?? []).filter((t) => t.type === "entrada");
             setDetail({
@@ -330,7 +330,7 @@ function FinanceiroPage() {
           value={fmtBRL(totalDespesas)}
           sub={`Custo pedidos ${fmtBRL(lucroPedidos.custo)} • Frete ${fmtBRL(lucroPedidos.frete)} • Outras ${fmtBRL(saidas)}`}
           color="#DC2626"
-          loading={loadingTx || !orders}
+          loading={loadingTx}
           onClick={() => {
             const items = (txs ?? []).filter((t) => t.type === "saida");
             setDetail({
@@ -349,7 +349,7 @@ function FinanceiroPage() {
           value={fmtBRL(saldoConsolidado)}
           sub="Receitas − Despesas"
           color={saldoConsolidado >= 0 ? "#2563EB" : "#DC2626"}
-          loading={loadingTx || !orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<Wallet className="h-4 w-4" />}
@@ -357,7 +357,7 @@ function FinanceiroPage() {
           value={fmtBRL(saldoProjetado)}
           sub={`Custos futuros ${fmtBRL(custosFuturos.total)} • A pagar ${fmtBRL(custosFuturos.despesasAPagar)} • Fixas ${fmtBRL(custosFuturos.fixas)}`}
           color={saldoProjetado >= 0 ? "#16A34A" : "#DC2626"}
-          loading={loadingTx || !orders || !recurring}
+          loading={loadingTx || !recurring}
         />
 
         <KpiCard
@@ -366,7 +366,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroPedidos.lucro)}
           sub={`Receita ${fmtBRL(lucroPedidos.receita)} • Custo ${fmtBRL(lucroPedidos.custo)}`}
           color="#16A34A"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<DollarSign className="h-4 w-4" />}
@@ -374,7 +374,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroPedidos.custo)}
           sub="Custo de mercadoria vendida no período"
           color="#DC2626"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -382,7 +382,7 @@ function FinanceiroPage() {
           value={fmtBRL(freteCost)}
           sub="Soma do custo de frete informado em cada pedido"
           color="#DC2626"
-          loading={!orders}
+          loading={loadingTx}
         />
         <KpiCard
           icon={<TrendingDown className="h-4 w-4" />}
@@ -454,7 +454,7 @@ function FinanceiroPage() {
           value={fmtBRL(lucroLiquido)}
           sub="Saldo do período − fixas mensais"
           color={lucroLiquido >= 0 ? "#16A34A" : "#DC2626"}
-          loading={!orders || !recurring || loadingTx}
+          loading={loadingTx || !recurring}
         />
       </div>
 
