@@ -245,6 +245,17 @@ export function sizesForGender(gender: Gender, productType?: ProductType | strin
   return SIZES_ADULT;
 }
 
+// Temporadas disponíveis para seleção, da mais recente à mais antiga.
+// 1975/76 → 2026/27 (modelo "ano início / ano fim com 2 dígitos").
+export const SEASONS: string[] = (() => {
+  const list: string[] = [];
+  for (let y = 2026; y >= 1975; y--) {
+    const next = String((y + 1) % 100).padStart(2, "0");
+    list.push(`${y}/${next}`);
+  }
+  return list;
+})();
+
 export function buildProductLabel(opts: {
   team?: string | null;
   season?: string | null;
