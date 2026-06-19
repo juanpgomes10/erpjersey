@@ -102,7 +102,7 @@ function ConfiguracoesPage() {
 
       <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-6 lg:flex-row">
         <TabsList
-          className="h-auto w-full flex-row flex-wrap justify-start gap-1 bg-[color:#111827] p-2 lg:w-56 lg:flex-col lg:items-stretch"
+          className="h-auto w-full flex-row flex-wrap justify-start gap-1 bg-muted p-2 lg:w-56 lg:flex-col lg:items-stretch"
         >
           <TabTrigger value="geral" icon={SettingsIcon} label="Geral" />
           <TabTrigger value="perfil" icon={UserIcon} label="Perfil" />
@@ -208,7 +208,7 @@ function GeralTab({ onNavigate }: { onNavigate: (v: string) => void }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md border border-border bg-[color:#0F172A]">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40">
               {store?.logo_url ? (
                 <img src={store.logo_url} alt="Logo" className="h-full w-full object-contain" />
               ) : (
@@ -225,7 +225,7 @@ function GeralTab({ onNavigate }: { onNavigate: (v: string) => void }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 p-3">
             <div>
               <div className="text-sm">Usar minha logo na página principal</div>
               <div className="text-xs text-muted-foreground">
@@ -279,7 +279,7 @@ function ShortcutRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-md border border-border bg-[color:#0F172A] p-3 text-left transition-colors hover:bg-[color:#111827]"
+      className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3 text-left transition-colors hover:bg-muted"
     >
       <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[color:rgba(37,99,235,0.12)] text-[color:#2563EB]">
         <Icon className="h-4 w-4" />
@@ -304,7 +304,7 @@ function TabTrigger({
       <Icon className="h-4 w-4" />
       <span className="flex-1 text-left">{label}</span>
       {soon && (
-        <span className="rounded bg-[color:#1E293B] px-1.5 py-0.5 text-[10px] uppercase text-[color:#64748B]">
+        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
           em breve
         </span>
       )}
@@ -549,7 +549,7 @@ function LojaTab() {
         <div className="flex items-center gap-4">
           <Avatar className="h-20 w-20">
             {logoUrl && <AvatarImage src={logoUrl} />}
-            <AvatarFallback className="bg-[color:#1E293B] text-lg">
+            <AvatarFallback className="bg-muted text-lg">
               {(form.name || "L").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -700,7 +700,7 @@ function NotificacoesTab() {
         <CardContent className="space-y-3">
           <ToggleRow label="Notificar contas a pagar com vencimento próximo"
             checked={prefs.financial_due} onChange={(v) => update("financial_due", v)} />
-          <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-[color:#0F172A] p-3">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/40 p-3">
             <span className="text-sm">Antecedência do aviso</span>
             <Select
               value={String(prefs.financial_due_days)}
@@ -723,14 +723,14 @@ function NotificacoesTab() {
           <CardTitle className="font-sora text-base">Canais</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3 opacity-80">
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 p-3 opacity-80">
             <div>
               <div className="text-sm">Notificações no sistema</div>
               <div className="text-xs text-muted-foreground">Sempre ativo</div>
             </div>
             <Switch checked disabled />
           </div>
-          <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 p-3">
             <div>
               <div className="text-sm">Email</div>
               <div className="text-xs text-muted-foreground">{user?.email}</div>
@@ -745,7 +745,7 @@ function NotificacoesTab() {
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-border bg-[color:#0F172A] p-3">
+    <div className="flex items-center justify-between rounded-md border border-border bg-muted/40 p-3">
       <span className="text-sm">{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
@@ -822,7 +822,7 @@ function SegurancaTab() {
             </div>
             {next && (
               <div className="mt-2 flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded bg-[color:#1E293B]">
+                <div className="h-1.5 flex-1 overflow-hidden rounded bg-muted">
                   <div className={cn("h-full transition-all", strength.color)} style={{ width: `${strength.pct}%` }} />
                 </div>
                 <span className="text-xs text-muted-foreground">{strength.label}</span>
@@ -844,7 +844,7 @@ function SegurancaTab() {
           <CardTitle className="font-sora text-base">Sessões ativas</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-md border border-border bg-[color:#0F172A] p-3 text-sm">
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
             <div className="font-medium">Sessão atual</div>
             <div className="text-xs text-muted-foreground">
               {typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : ""}
@@ -1066,7 +1066,7 @@ function ExportCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {children}
-        <div className="rounded-md border border-[color:#1E293B] bg-[color:#0F172A] p-3">
+        <div className="rounded-md border border-border bg-muted/40 p-3">
           <div className="mb-1 text-[11px] uppercase text-muted-foreground">Colunas exportadas</div>
           <div className="text-xs text-foreground/80">{columns.join(" · ")}</div>
         </div>
