@@ -202,7 +202,7 @@ function FinanceiroPage() {
     const frete = sumBySource("order_shipping");
     const receitasManuais = entradas - receita;
     const despesasManuais = saidas - custo - frete;
-    return { receita, custo, frete, lucro: receita - custo, receitasManuais, despesasManuais };
+    return { receita, custo, frete, lucro: receita - custo - frete, receitasManuais, despesasManuais };
   }, [txs, entradas, saidas]);
 
   const freteCost = lucroPedidos.frete;
