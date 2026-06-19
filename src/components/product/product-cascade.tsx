@@ -22,6 +22,7 @@ import {
   PRODUCT_TYPES,
   MODELS,
   GENDERS,
+  SEASONS,
   searchTeams,
   teamLabel,
   type Gender,
