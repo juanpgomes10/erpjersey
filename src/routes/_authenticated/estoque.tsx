@@ -549,10 +549,13 @@ function ProductDialog({
             </div>
           </div>
 
-          <div>
-            <Label>URL da imagem</Label>
-            <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
-          </div>
+          <PhotoUploader
+            value={imageUrl || null}
+            onChange={(u) => setImageUrl(u ?? "")}
+            folder="estoque"
+            label="Foto do produto"
+            hint="Aparece no card do estoque. PNG ou JPG até 5MB."
+          />
 
           <div>
             <Label>Estoque por tamanho</Label>
