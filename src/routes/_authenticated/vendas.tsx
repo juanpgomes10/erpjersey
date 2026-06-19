@@ -297,7 +297,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   // Configurador do item (cascata Time → Temporada → Produto → Modelo → Gênero → Tamanho)
   const [cascade, setCascade] = useState<ProductCascadeValue>(emptyCascadeValue());
   const [cfgCostStr, setCfgCostStr] = useState("");
-  const [cfgPriceStr, setCfgPriceStr] = useState("");
+  
   const [cfgPersonalize, setCfgPersonalize] = useState(false);
   const [cfgPersonName, setCfgPersonName] = useState("");
   const [cfgPersonNumber, setCfgPersonNumber] = useState("");
@@ -334,7 +334,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
   function resetConfigurator() {
     setCascade(emptyCascadeValue());
     setCfgCostStr("");
-    setCfgPriceStr("");
+    
     setCfgPersonalize(false);
     setCfgPersonName("");
     setCfgPersonNumber("");
@@ -401,9 +401,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
       toast.error("Informe qual edição especial"); return;
     }
     if (!cascade.size) { toast.error("Selecione o tamanho"); return; }
-    const price = Number(cfgPriceStr) || 0;
     const cost = Number(cfgCostStr) || 0;
-    if (price <= 0) { toast.error("Informe o valor pago pelo cliente"); return; }
 
     const baseLabel = buildProductLabel({
       team: cascade.team,
@@ -429,7 +427,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
         size: cascade.size as SizeOpt,
         gender: cascade.gender,
         quantity: 1,
-        unitPrice: price,
+        unitPrice: 0,
         unitCost: cost,
         stockBySize: {},
       },
@@ -734,15 +732,10 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Custo aproximado (R$)</Label>
-                  <Input type="number" step="0.01" value={cfgCostStr} onChange={(e) => setCfgCostStr(e.target.value)} placeholder="0,00" />
-                </div>
-                <div>
-                  <Label>Valor pago pelo cliente (R$)*</Label>
-                  <Input type="number" step="0.01" value={cfgPriceStr} onChange={(e) => setCfgPriceStr(e.target.value)} placeholder="0,00" />
-                </div>
+              <div>
+                <Label>Custo aproximado do produto (R$)</Label>
+                <Input type="number" step="0.01" value={cfgCostStr} onChange={(e) => setCfgCostStr(e.target.value)} placeholder="0,00" />
+                <p className="mt-1 text-xs text-muted-foreground">Quanto custou para você. O valor pago pelo cliente é informado abaixo em "Dados de faturamento".</p>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
@@ -755,20 +748,18 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             {cart.length > 0 && (
               <div className="mt-3 rounded-md border border-border">
                 <div className="grid grid-cols-12 gap-2 border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase text-muted-foreground">
-                  <div className="col-span-5">Produto</div>
-                  <div className="col-span-1 text-center">Qtd</div>
-                  <div className="col-span-2 text-right">Preço un.</div>
-                  <div className="col-span-2 text-right">Custo un.</div>
-                  <div className="col-span-1 text-right">Total</div>
+                  <div className="col-span-6">Produto</div>
+                  <div className="col-span-2 text-center">Qtd</div>
+                  <div className="col-span-3 text-right">Custo un.</div>
                   <div className="col-span-1"></div>
                 </div>
                 {cart.map((c, i) => (
                   <div key={i} className="grid grid-cols-12 items-center gap-2 border-b border-border p-3 last:border-none">
-                    <div className="col-span-5 min-w-0">
+                    <div className="col-span-6 min-w-0">
                       <p className="text-sm font-medium truncate">{c.productName}</p>
                       <p className="text-xs text-muted-foreground">Tamanho {c.size}</p>
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <Input
                         type="number"
                         min={1}
@@ -780,19 +771,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                         className="h-8 text-center"
                       />
                     </div>
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={c.unitPrice}
-                        onChange={(e) => {
-                          const v = Number(e.target.value) || 0;
-                          setCart((prev) => prev.map((x, idx) => idx === i ? { ...x, unitPrice: v } : x));
-                        }}
-                        className="h-8 text-right tabular"
-                      />
-                    </div>
-                    <div className="col-span-2">
+                    <div className="col-span-3">
                       <Input
                         type="number"
                         step="0.01"
@@ -804,7 +783,6 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
                         className="h-8 text-right tabular"
                       />
                     </div>
-                    <div className="col-span-1 text-right tabular text-sm font-medium">{fmtBRL(c.unitPrice * c.quantity)}</div>
                     <div className="col-span-1 text-right">
                       <Button variant="ghost" size="icon" onClick={() => setCart((p) => p.filter((_, idx) => idx !== i))}>
                         <X className="h-4 w-4" />
@@ -931,16 +909,27 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
             <h3 className="font-sora text-sm font-semibold mb-2">5. Dados de faturamento</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label>Valor pago pelo cliente</Label>
+                <Label>Valor pago pelo cliente (R$)*</Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={paidValueStr}
                   onChange={(e) => setPaidValueStr(e.target.value)}
-                  placeholder={fmtBRL(totalCalc)}
+                  placeholder="0,00"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">Soma do carrinho: <span className="tabular">{fmtBRL(totalCalc)}</span></p>
+                <p className="mt-1 text-xs text-muted-foreground">Faturamento bruto da venda.</p>
               </div>
+              <div>
+                <Label>Custo total dos produtos (R$)</Label>
+                <Input
+                  type="text"
+                  value={fmtBRL(itemsCost)}
+                  readOnly
+                  className="bg-muted/40"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Soma automática dos custos do carrinho. Vai para "Custo dos pedidos" no Financeiro.</p>
+              </div>
+
               <div>
                 <Label>Valor líquido recebido</Label>
                 <Input
