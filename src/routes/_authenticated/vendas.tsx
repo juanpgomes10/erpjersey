@@ -563,6 +563,7 @@ function NewSaleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v
           quantity: c.quantity,
           unit_price: c.unitPrice,
           unit_cost: c.unitCost,
+          image_url: c.imageUrl,
         })),
       );
       if (itemsErr) throw itemsErr;
