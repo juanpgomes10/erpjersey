@@ -316,7 +316,7 @@ function FinanceiroPage() {
             const items = (txs ?? []).filter((t) => t.type === "entrada");
             setDetail({
               title: "Receitas do período",
-              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(entradas)}`,
+              description: `Vendas (pedidos): ${fmtBRL(lucroPedidos.receita)} • Outras entradas: ${fmtBRL(lucroPedidos.receitasManuais)}`,
               items,
               total: totalReceitas,
               link: { to: "/vendas", label: "Ver vendas" },
