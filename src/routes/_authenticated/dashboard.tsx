@@ -118,7 +118,7 @@ function DashboardPage() {
           supabase
             .from("orders")
             .select(
-              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product_name, image_url, product:products(name, image_url, cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
+              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product_name, image_url, product:products(name, image_url, cost_price, team)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
