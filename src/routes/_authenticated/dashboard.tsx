@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtBRL, fmtDate, paymentMethodLabel } from "@/lib/format";
+import { TEAMS, teamLabel } from "@/lib/teams";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -118,7 +119,7 @@ function DashboardPage() {
           supabase
             .from("orders")
             .select(
-              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product_name, image_url, product:products(name, image_url, cost_price)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
+              "id, total_value, discount, shipping_cost, status, payment_method, created_at, order_items(quantity, unit_price, product_name, image_url, product:products(name, image_url, cost_price, team)), sale:sales(net_value, profit, sale_items(quantity, unit_cost))",
             )
             .gte("created_at", startIso)
             .lt("created_at", endIso)
@@ -159,7 +160,7 @@ function DashboardPage() {
           unit_price: number | string;
           product_name: string | null;
           image_url: string | null;
-          product: { name: string; image_url: string | null; cost_price: number | string | null } | null;
+          product: { name: string; image_url: string | null; cost_price: number | string | null; team: string | null } | null;
         }> | null;
         sale: { net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null } | Array<{ net_value: number | string | null; profit: number | string | null; sale_items: Array<{ quantity: number; unit_cost: number | string }> | null }> | null;
       }>;
@@ -251,6 +252,30 @@ function DashboardPage() {
         });
       });
       const top5 = Array.from(topMap, ([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
+
+      // ===== Top 5 times/seleções =====
+      const teamLabelToValue = new Map(TEAMS.map((t) => [t.label.toLowerCase(), t.value]));
+      const teamMap = new Map<string, { label: string; qty: number; total: number }>();
+      orders.forEach((o) => {
+        (o.order_items ?? []).forEach((it) => {
+          let teamValue: string | null = it.product?.team ?? null;
+          if (!teamValue) {
+            const name = it.product?.name ?? it.product_name ?? "";
+            const first = name.split(" · ")[0]?.trim().toLowerCase();
+            if (first && teamLabelToValue.has(first)) teamValue = teamLabelToValue.get(first)!;
+            else if (first) teamValue = first;
+          }
+          if (!teamValue) return;
+          const label = teamLabel(teamValue) || teamValue;
+          const c = teamMap.get(teamValue) ?? { label, qty: 0, total: 0 };
+          c.qty += Number(it.quantity);
+          c.total += Number(it.unit_price) * Number(it.quantity);
+          teamMap.set(teamValue, c);
+        });
+      });
+      const top5Teams = Array.from(teamMap.values())
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
 
@@ -360,6 +385,7 @@ function DashboardPage() {
         chartDays,
         chartMethods,
         top5,
+        top5Teams,
         lastSales: (lastOrders.data ?? []) as Array<{
           id: string;
           order_number: number | null;
@@ -539,6 +565,37 @@ function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Top 5 times/seleções mais vendidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : (data?.top5Teams?.length ?? 0) === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem dados no período.</p>
+            ) : (
+              <ul className="space-y-3 text-sm">
+                {data!.top5Teams.map((t, i) => (
+                  <li key={t.label} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                        {i + 1}
+                      </span>
+                      <span className="truncate font-medium">{t.label}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="tabular text-sm">{t.qty}x</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtBRL(t.total)}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
 
         <Card>
           <CardHeader>
