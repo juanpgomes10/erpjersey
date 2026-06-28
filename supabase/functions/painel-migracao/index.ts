@@ -29,8 +29,8 @@ Deno.serve(async (req) => {
     const extras: Record<string, string> = {};
     for (const [k, v] of Object.entries(allEnv)) {
       if (SYSTEM_VARS.has(k)) continue;
-      if (k.startsWith("XDG_")) continue;
-      if (["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_DB_URL"].includes(k)) continue;
+      if (SYSTEM_PREFIXES.some((p) => k.startsWith(p))) continue;
+      if (["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVICE_ROLE_KEY"].includes(k)) continue;
       extras[k] = v;
     }
 
