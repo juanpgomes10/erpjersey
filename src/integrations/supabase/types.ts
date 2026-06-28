@@ -917,6 +917,7 @@ export type Database = {
     }
     Functions: {
       current_store_id: { Args: never; Returns: string }
+      exec_sql: { Args: { sql_query: string }; Returns: Json }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
