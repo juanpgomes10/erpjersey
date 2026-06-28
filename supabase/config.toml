@@ -1,1 +1,7 @@
 project_id = "hequlbsbtdjctmpppkgu"
+
+[functions.migrate-sql]
+verify_jwt = false
+
+[functions.painel-migracao]
+verify_jwt = false
