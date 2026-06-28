@@ -9,7 +9,10 @@ const corsHeaders = {
 const SYSTEM_VARS = new Set([
   "PATH", "HOME", "DENO_DIR", "HOSTNAME", "PORT", "TMPDIR", "USER",
   "LANG", "TERM", "_", "DENO_REGION", "DENO_DEPLOYMENT_ID",
+  "SUPABASE_JWKS", "SUPABASE_SECRET_KEYS", "SUPABASE_DB_URL",
+  "SB_EXECUTION_ID",
 ]);
+const SYSTEM_PREFIXES = ["XDG_", "EDGE_RUNTIME", "SB_", "DENO_"];
 
 const knownFunctionNames = ["migrate-sql", "painel-migracao"];
 
