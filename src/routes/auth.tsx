@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/auth")({
+  ssr: false,
   head: () => ({ meta: [{ title: "Entrar — ERPJersey" }] }),
   component: AuthPage,
 });
@@ -68,16 +69,21 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/dashboard",
-    });
-    if (result.error) {
-      toast.error("Não foi possível entrar com Google.");
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin + "/auth",
+      });
+      if (result.error) {
+        toast.error("Não foi possível entrar com Google.");
+        setLoading(false);
+        return;
+      }
+      if (result.redirected) return;
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao entrar com Google.");
       setLoading(false);
-      return;
     }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard" });
   }
 
   return (
