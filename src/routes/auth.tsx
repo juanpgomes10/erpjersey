@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Logo } from "@/components/brand/logo";
 import authLogoAsset from "@/assets/erpjersey-auth-logo.png.asset.json";
+import { assetUrl } from "@/lib/asset-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

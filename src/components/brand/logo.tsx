@@ -2,6 +2,7 @@ import markAsset from "@/assets/erpjersey-mark.png.asset.json";
 import wordmarkDarkAsset from "@/assets/erpjersey-wordmark-dark.png.asset.json";
 import wordmarkLightAsset from "@/assets/erpjersey-wordmark-light.png.asset.json";
 import bagAsset from "@/assets/erpjersey-bag.png.asset.json";
+import { assetUrl } from "@/lib/asset-url";
 
 interface LogoProps {
   size?: number;
@@ -13,7 +14,7 @@ interface LogoProps {
 export function LogoMark({ size = 32, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src={markAsset.url}
+      src={assetUrl(markAsset)}
       alt="ERPJersey"
       width={size}
       height={size}
@@ -44,13 +45,13 @@ export function Logo({ size = 28, withWordmark = true, className = "", overrideU
   return (
     <>
       <img
-        src={wordmarkDarkAsset.url}
+        src={assetUrl(wordmarkDarkAsset)}
         alt="ERPJersey"
         className={`hidden dark:block ${className}`}
         style={baseStyle}
       />
       <img
-        src={wordmarkLightAsset.url}
+        src={assetUrl(wordmarkLightAsset)}
         alt="ERPJersey"
         className={`block dark:hidden ${className}`}
         style={baseStyle}
@@ -63,7 +64,7 @@ export function Logo({ size = 28, withWordmark = true, className = "", overrideU
 export function LogoBag({ size = 96, className = "" }: { size?: number; className?: string }) {
   return (
     <img
-      src={bagAsset.url}
+      src={assetUrl(bagAsset)}
       alt="ERPJersey"
       width={size}
       height={size}
